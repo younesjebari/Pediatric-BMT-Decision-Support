@@ -1,29 +1,37 @@
+
+
 import pandas as pd
 import numpy as np
+from sklearn.impute import SimpleImputer
+
 
 def optimize_memory(df):
-    """
-    Optimise l'usage de la mémoire en ajustant les types de données.
-    Passage de float64 à float32 et int64 à int32.
-    """
-    for col in df.columns:
-        col_type = df[col].dtype
-        
-        if col_type == 'float64':
-            df[col] = df[col].astype('float32')
-        elif col_type == 'int64':
-            df[col] = df[col].astype('int32')
-            
+    """Réduit l'usage mémoire en downcasting les types numériques."""
+    df = df.copy()
+    
+    before = df.memory_usage(deep=True).sum() / 1024**2
+    
+    for col in df.select_dtypes(include=["float64"]).columns:
+        df[col] = df[col].astype("float32")
+    
+    for col in df.select_dtypes(include=["int64"]).columns:
+        df[col] = df[col].astype("int32")
+    
+    after = df.memory_usage(deep=True).sum() / 1024**2
+    print(f"Mémoire avant : {before:.4f} MB")
+    print(f"Mémoire après : {after:.4f} MB")
+    print(f"Réduction     : {(1 - after/before)*100:.1f}%")
+    
     return df
-from sklearn.impute import SimpleImputer
-import pandas as pd
-import numpy as np
+
 
 def handle_missing_values(df):
     """
-    - Colonnes numériques  → imputation par la médiane
-    - Colonnes catégorielles → imputation par la valeur la plus fréquente
+    Colonnes numériques  → médiane
+    Colonnes catégorielles → valeur la plus fréquente
     """
+    df = df.copy()
+    
     num_cols = df.select_dtypes(include=["number"]).columns
     cat_cols = df.select_dtypes(include=["object"]).columns
 
