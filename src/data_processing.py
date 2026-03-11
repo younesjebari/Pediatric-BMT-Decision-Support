@@ -49,3 +49,22 @@ def handle_missing_values(df):
         df[cat_cols] = imputer_cat.fit_transform(df[cat_cols])
 
     return df
+
+    def handle_outliers(df, factor=3.0):
+    """
+    Cap les outliers avec la méthode IQR.
+    Conservateur (factor=3.0) pour préserver
+    les valeurs médicales extrêmes mais réelles.
+    """
+    df = df.copy()
+    num_cols = df.select_dtypes(include=["number"]).columns
+    
+    for col in num_cols:
+        q1 = df[col].quantile(0.25)
+        q3 = df[col].quantile(0.75)
+        iqr = q3 - q1
+        df[col] = df[col].clip(
+            lower=q1 - factor * iqr,
+            upper=q3 + factor * iqr
+        )
+    return df
