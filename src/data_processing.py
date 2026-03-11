@@ -50,7 +50,7 @@ def handle_missing_values(df):
 
     return df
 
-    def handle_outliers(df, factor=3.0):
+def handle_outliers(df, factor=3.0):
     """
     Cap les outliers avec la méthode IQR.
     Conservateur (factor=3.0) pour préserver
