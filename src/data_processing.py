@@ -27,14 +27,18 @@ def optimize_memory(df):
 
 def handle_missing_values(df):
     """
-    Colonnes numériques   → médiane
+    Colonnes numériques    → médiane
     Colonnes catégorielles → valeur la plus fréquente
     """
     df = df.copy()
     
-    # Remplace les None par NaN d'abord
-    df = df.fillna(value=pd.NA)
+    # Remplace None par np.nan
+    df = df.fillna(np.nan)
     
+    # Convertit les colonnes object en string pour sklearn
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].astype(str).replace("nan", np.nan)
+
     num_cols = df.select_dtypes(include=["number"]).columns
     cat_cols = df.select_dtypes(include=["object"]).columns
 
