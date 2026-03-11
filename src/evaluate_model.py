@@ -1,57 +1,54 @@
 import pandas as pd
 import joblib
 from sklearn.metrics import classification_report, roc_auc_score
-from scipy.io import arff
 import os
 import sys
 
-# Importation du nettoyage pour avoir les mêmes données qu'à l'entraînement
+# Ajout du chemin pour importer data_processing si besoin
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.data_processing import handle_missing_values
 
 def run_evaluation():
-    print("🧪 Chargement du modèle sauvegardé...")
+    print("🧪 Évaluation du modèle sur données de test (inconnues)...")
     
-    # 1. Vérifier si le modèle existe
-    if not os.path.exists('models/final_model.joblib'):
-        print("❌ Erreur : Aucun modèle trouvé. Lancez d'abord train_model.py")
+    # 1. Charger le modèle et les données de test sauvegardées par train_model.py
+    model_path = 'models/final_model.joblib'
+    data_test_path = 'models/test_data.joblib'
+
+    if not os.path.exists(model_path) or not os.path.exists(data_test_path):
+        print("❌ Erreur : Modèle ou données de test introuvables. Lancez train_model.py d'abord.")
         return
 
-    model = joblib.load('models/final_model.joblib')
+    model = joblib.load(model_path)
+    X_test, y_test = joblib.load(data_test_path)
 
-    # 2. Chargement et préparation des données
-    raw_data, _ = arff.loadarff('data/bone-marrow.arff')
-    df = pd.DataFrame(raw_data)
-    for col in df.select_dtypes([object]):
-        df[col] = df[col].str.decode('utf-8')
+    # 2. Prédictions
+    # y_pred pour les classes (0 ou 1)
+    # y_proba pour le score de probabilité (nécessaire pour le ROC-AUC)
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1] # Probabilité de la classe 0 (Décès)
+
+    # 3. Calcul du rapport détaillé
+    # On précise labels=[0, 1] pour s'assurer que la classe 0 est bien traitée
+    report = classification_report(y_test, y_pred, output_dict=True)
+
+    print("\n" + "="*40)
+    print("📊 PERFORMANCES RÉELLES DU MODÈLE")
+    print("="*40)
     
-    df_clean = handle_missing_values(df)
-    for col in df_clean.select_dtypes(include=['object']).columns:
-        df_clean[col] = df_clean[col].astype('category').cat.codes
-
-    X = df_clean.drop(['survival_status', 'survival_time'], axis=1)
-    y = df_clean['survival_status']
-
-    # 3. Calcul des scores
-    y_pred = model.predict(X)
-    y_proba = model.predict_proba(X)[:, 1]
-    report = classification_report(y, y_pred, output_dict=True)
-
-    # 4. Affichage du tableau de pourcentage
-    print("\n" + "="*30)
-    print("📊 RAPPORT DE PERFORMANCE")
-    print("="*30)
-    
-    # On affiche les résultats pour la classe '0.0' (Décès)
+    # Extraction des métriques pour la classe 0.0 (Décès)
     summary = {
-        "Métrique": ["Rappel (Décès)", "Précision (Décès)", "Score ROC-AUC"],
+        "Métrique": ["Rappel (Recall) - Cas critiques", "Précision", "Score ROC-AUC"],
         "Résultat %": [
             f"{report['0.0']['recall']*100:.1f}%",
             f"{report['0.0']['precision']*100:.1f}%",
-            f"{roc_auc_score(y, y_proba)*100:.1f}%"
+            f"{roc_auc_score(y_test, y_proba)*100:.1f}%"
         ]
     }
+    
     print(pd.DataFrame(summary).to_string(index=False))
+    print("="*40)
+    print("Note : Ces scores reflètent la capacité du modèle à prédire")
+    print("le risque sur de nouveaux patients jamais vus.")
 
 if __name__ == "__main__":
     run_evaluation()
