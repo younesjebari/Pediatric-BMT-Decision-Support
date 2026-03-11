@@ -27,11 +27,18 @@ def optimize_memory(df):
 
 def handle_missing_values(df):
     """
-    Colonnes numériques  → médiane
+    Colonnes numériques    → médiane
     Colonnes catégorielles → valeur la plus fréquente
     """
     df = df.copy()
     
+    # Remplace None par np.nan
+    df = df.fillna(np.nan)
+    
+    # Convertit les colonnes object en string pour sklearn
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].astype(str).replace("nan", np.nan)
+
     num_cols = df.select_dtypes(include=["number"]).columns
     cat_cols = df.select_dtypes(include=["object"]).columns
 
@@ -43,4 +50,18 @@ def handle_missing_values(df):
         imputer_cat = SimpleImputer(strategy="most_frequent")
         df[cat_cols] = imputer_cat.fit_transform(df[cat_cols])
 
+    return df
+
+def handle_outliers(df, factor=3.0):
+    """Supprime les valeurs aberrantes avec la methode IQR."""
+    df = df.copy()
+    num_cols = df.select_dtypes(include=["number"]).columns
+    for col in num_cols:
+        q1 = df[col].quantile(0.25)
+        q3 = df[col].quantile(0.75)
+        iqr = q3 - q1
+        df[col] = df[col].clip(
+            lower=q1 - factor * iqr,
+            upper=q3 + factor * iqr
+        )
     return df
