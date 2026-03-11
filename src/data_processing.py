@@ -27,22 +27,24 @@ def optimize_memory(df):
 
 def handle_missing_values(df):
     """
-    Colonnes numériques   → médiane
+    Colonnes numériques → médiane
     Colonnes catégorielles → valeur la plus fréquente
     """
     df = df.copy()
     
-    # Remplace les None par NaN d'abord
-    df = df.fillna(value=pd.NA)
-    
+    # 1. Traiter les numériques
     num_cols = df.select_dtypes(include=["number"]).columns
-    cat_cols = df.select_dtypes(include=["object"]).columns
-
     if len(num_cols) > 0:
         imputer_num = SimpleImputer(strategy="median")
         df[num_cols] = imputer_num.fit_transform(df[num_cols])
 
+    # 2. Traiter les catégorielles (C'est ici que ça plantait)
+    cat_cols = df.select_dtypes(include=["object"]).columns
     if len(cat_cols) > 0:
+        # On remplace d'abord les None par des strings vides ou une valeur explicite
+        # pour éviter l'ambiguïté que Pandas n'aime pas
+        df[cat_cols] = df[cat_cols].fillna("missing_value")
+        
         imputer_cat = SimpleImputer(strategy="most_frequent")
         df[cat_cols] = imputer_cat.fit_transform(df[cat_cols])
 
