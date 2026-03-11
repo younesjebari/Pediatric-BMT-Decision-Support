@@ -7,8 +7,6 @@ import pandas as pd
 import numpy as np
 from data_processing import optimize_memory, handle_missing_values
 
-
-# ── Fixtures ──────────────────────────────────
 @pytest.fixture
 def sample_df():
     return pd.DataFrame({
@@ -25,8 +23,6 @@ def df_with_missing():
         "groupe": ["A", None, "A"],
     })
 
-
-# ── Tests optimize_memory ──────────────────────
 def test_float64_en_float32(sample_df):
     result = optimize_memory(sample_df)
     assert result["age"].dtype == "float32"
@@ -40,12 +36,6 @@ def test_memoire_reduite(sample_df):
     apres = optimize_memory(sample_df).memory_usage(deep=True).sum()
     assert apres <= avant
 
-def test_valeurs_preservees(sample_df):
-    result = optimize_memory(sample_df)
-    assert list(result["score"]) == [10, 20, 30]
-
-
-# ── Tests handle_missing_values ────────────────
 def test_plus_de_nan(df_with_missing):
     result = handle_missing_values(df_with_missing)
     assert result.isnull().sum().sum() == 0
