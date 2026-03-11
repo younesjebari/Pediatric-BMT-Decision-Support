@@ -27,10 +27,13 @@ def optimize_memory(df):
 
 def handle_missing_values(df):
     """
-    Colonnes numériques  → médiane
+    Colonnes numériques   → médiane
     Colonnes catégorielles → valeur la plus fréquente
     """
     df = df.copy()
+    
+    # Remplace les None par NaN d'abord
+    df = df.fillna(value=pd.NA)
     
     num_cols = df.select_dtypes(include=["number"]).columns
     cat_cols = df.select_dtypes(include=["object"]).columns
