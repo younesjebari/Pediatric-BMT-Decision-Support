@@ -1,42 +1,58 @@
-# Pediatric-BMT-Decision-Support
-A machine learning application designed to assist physicians in predicting the success rate of pediatric bone marrow transplants using explainable AI (SHAP).
-## ⚡ Optimisation Mémoire
+# 🏥 Pediatric-BMT-Decision-Support
 
-La fonction `optimize_memory(df)` dans `src/data_processing.py`
-réduit l'usage RAM en convertissant les types de données :
+A Machine Learning application designed to assist physicians in predicting the success rate of pediatric bone marrow transplants (BMT) using explainable AI.
 
-| Type original | Type optimisé | Réduction |
-|---------------|---------------|-----------|
-| float64       | float32       | ~50%      |
-| int64         | int32         | ~50%      |
+## 📈 Final Model Performance (Random Forest)
 
-### Résultats mesurés sur le dataset BMT :
+The model has been validated on an independent test set (data never seen during training) to ensure realistic results in a clinical setting.
 
-| | Mémoire |
-|-|---------|
-| Avant optimisation | 0.12 MB |
-| Après optimisation | 0.06 MB |
-| **Réduction totale** | **~50%** |
+| Metric | Result | Medical Significance |
+| :--- | :--- | :--- |
+| **Recall (Death cases)** | **81.0%** | Ability to correctly identify high-risk patients (critical cases). |
+| **Precision** | **70.8%** | Reliability of the alert to limit false alarms for medical staff. |
+| **ROC-AUC Score** | **71.0%** | Overall ability of the model to distinguish between survival classes. |
 
-> Preuve reproductible : lancer `notebooks/eda.ipynb` section 6.
-# 🏥 Support à la décision pour la greffe pédiatrique (BMT)
+---
 
-Ce projet implémente une solution de Machine Learning pour prédire la survie des patients pédiatriques après une greffe de moelle osseuse.
+## 🛠️ Methodology & Technical Rigor
 
-## 📈 Performance du Modèle Final (Random Forest)
-Le modèle sélectionné offre les performances suivantes sur les cas critiques :
-- **Rappel (Recall) : 81.0%** (Capacité à détecter les patients à haut risque)
-- **Précision : 70.8%**
-- **Score ROC-AUC : 71.0%**
+### 🛡️ Prevention of "Data Leakage"
+Initially, the model showed a 100% accuracy score, indicating a mathematical "leak." We corrected this instability by:
+* **Dropping the `survival_time` column**: This information is not known at the time a doctor must make a decision upon admission.
+* **Train/Test Split**: The model is trained on 80% of the data and evaluated on the remaining 20% (unseen data) to simulate real-world patient arrivals.
 
-## 🛠️ Structure Technologique
-- **Traitement :** Nettoyage automatisé des données (imputation par médiane/mode).
-- **Équilibrage :** Technique SMOTE pour renforcer l'apprentissage sur les cas de décès.
-- **Modélisation :** Pipeline robuste utilisant `RandomForestClassifier`.
+### ⚖️ Class Balancing (SMOTE)
+Since the dataset was imbalanced (more survivors than deaths), we applied **SMOTE** (*Synthetic Minority Over-sampling Technique*) to the training set to improve the model's ability to detect critical cases.
 
-## 🚀 Utilisation
-Pour ré-entraîner le modèle avec de nouvelles données :
+---
+
+## ⚡ Memory Optimization
+
+The `optimize_memory(df)` function in `src/data_processing.py` reduces RAM usage by converting data types without losing precision:
+
+| Original Type | Optimized Type | Reduction |
+| :--- | :--- | :--- |
+| float64 | float32 | ~50% |
+| int64 | int32 | ~50% |
+
+### Measured Results on BMT Dataset:
+* **Before Optimization:** 0.12 MB
+* **After Optimization:** 0.06 MB
+* **Total Gain:** **~50% reduction**
+
+> *Reproducible proof: run `notebooks/eda.ipynb` section 6.*
+
+---
+
+## 🚀 Installation and Usage
+
+### 1. Environment Setup
 ```powershell
-.\.venv\Scripts\python.exe src/train_model.py
+# Create virtual environment
+python -m venv .venv
 
+# Activate environment
+.\.venv\Scripts\activate
 
+# Install dependencies
+pip install -r requirements.txt
