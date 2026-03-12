@@ -38,5 +38,8 @@ Le modèle sélectionné offre les performances suivantes sur les cas critiques 
 Pour ré-entraîner le modèle avec de nouvelles données :
 ```powershell
 .\.venv\Scripts\python.exe src/train_model.py
+<<<<<<< Updated upstream
 
 
+=======
+>>>>>>> Stashed changes
