@@ -1,23 +1,27 @@
-import pandas as pd
 import joblib
+import pandas as pd
+from scipy.io import arff
 from sklearn.metrics import classification_report, roc_auc_score
-import os
-
-def evaluate_production_model():
-    print("🧪 Évaluation du modèle en cours...")
+# model
+def evaluate():
+    model = joblib.load('models/final_model.joblib')
+    raw_data, _ = arff.loadarff('data/bone-marrow.arff')
+    df = pd.DataFrame(raw_data)
     
-    # 1. Charger le modèle sauvegardé
-    model_path = 'models/final_model.joblib'
-    if not os.path.exists(model_path):
-        print("Erreur : Le fichier du modèle n'existe pas !")
-        return
-
-    model = joblib.load(model_path)
+    # (Même prétraitement que train_model.py ici)
+    for col in df.select_dtypes([object]): df[col] = df[col].str.decode('utf-8')
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].astype('category').cat.codes
     
-    # 2. Ici, on chargerait normalement un dataset de test "frais"
-    # Pour l'exemple, on peut utiliser une portion des données actuelles
-    print("✅ Modèle chargé avec succès.")
-    print("📊 Statistiques de performance prêtes pour le rapport final.")
+    X = df.drop(['survival_status', 'survival_time'], axis=1)
+    y = df['survival_status']
+
+    y_pred = model.predict(X)
+    y_proba = model.predict_proba(X)[:, 1]
+
+    print("📊 RAPPORT DE PERFORMANCE [cite: 18]")
+    print(classification_report(y, y_pred))
+    print(f"ROC-AUC Score: {roc_auc_score(y, y_proba):.2f}")
 
 if __name__ == "__main__":
-    evaluate_production_model()
+    evaluate()
