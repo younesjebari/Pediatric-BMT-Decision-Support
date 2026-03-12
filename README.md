@@ -53,6 +53,7 @@ Chaque prédiction générée par l'interface Streamlit est accompagnée d'une v
 
 ## Utilisation de l'IA (Prompt Engineering)
 
+<<<<<<< Updated upstream
 Dans le cadre de ce projet d'analyse de données médicales, notre premier objectif technique était de mettre en place un flux de travail collaboratif solide et de maîtriser les commandes Git/GitHub (Push, Pull, gestion des branches).
 
 Afin de disposer rapidement d'une base de code pertinente à nous partager et à fusionner, nous avons utilisé l'assistant IA **Gemini**. L'objectif n'était pas de faire écrire le projet par l'IA, mais de générer des squelettes de code pour nos différents modèles de Machine Learning (destinés à la prédiction de l'évolution des patients), nous permettant ainsi de nous concentrer sur la pratique de GitHub.
@@ -67,3 +68,19 @@ Afin de disposer rapidement d'une base de code pertinente à nous partager et à
 2. **Répartition :** Chaque membre de l'équipe a pris en charge un modèle spécifique.
 3. **Collaboration :** Utilisation de notre repository GitHub pour créer des branches, faire nos *commits*, et fusionner le tout via des *Pull Requests*.
 4. **Adaptation :** Le code généré a ensuite été relu, débuggé humainement et adapté aux spécificités de notre jeu de données.
+=======
+Pour ré-entraîner le modèle avec de nouvelles données :
+```powershell
+.\.venv\Scripts\python.exe src/train_model.py
+>>>>>>> Stashed changes
+## Résultats Tests Statistiques
+
+Variables numériques significatives :
+- Rbodymass (p=0.0033)
+- CD3dkgx10d8 (p=0.0016)
+- CD34kgx10d6 (p=0.0070)
+
+Variables catégorielles significatives :
+- Disease (p=0.0185)
+- Relapse (p=0.0001)
+- extcGvHD (p=0.0000)
