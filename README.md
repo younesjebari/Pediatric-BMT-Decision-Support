@@ -73,3 +73,14 @@ Pour ré-entraîner le modèle avec de nouvelles données :
 ```powershell
 .\.venv\Scripts\python.exe src/train_model.py
 >>>>>>> Stashed changes
+## Résultats Tests Statistiques
+
+Variables numériques significatives :
+- Rbodymass (p=0.0033)
+- CD3dkgx10d8 (p=0.0016)
+- CD34kgx10d6 (p=0.0070)
+
+Variables catégorielles significatives :
+- Disease (p=0.0185)
+- Relapse (p=0.0001)
+- extcGvHD (p=0.0000)
