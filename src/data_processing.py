@@ -68,3 +68,25 @@ def handle_outliers(df, factor=3.0):
             upper=q3 + factor * iqr
         )
     return df
+# Variables importantes sélectionnées par tests statistiques
+IMPORTANT_FEATURES = [
+    # Numériques significatives
+    'CD3dkgx10d8',    # Dose CD3+ (p=0.0016)
+    'CD34kgx10d6',    # Dose CD34+ (p=0.0070)
+    'Rbodymass',      # Masse corporelle (p=0.0033)
+    'Recipientage',   # Age receveur (p=0.0050)
+    'PLTrecovery',    # Récupération plaquettes (p=0.0067)
+    # Catégorielles significatives
+    'Disease',        # Type maladie (p=0.0185)
+    'Relapse',        # Rechute (p=0.0001)
+    'extcGvHD',       # GvHD chronique (p=0.0000)
+    # Cliniquement importantes
+    'Donorage',       # Age donneur
+    'HLAmatch',       # Compatibilité HLA
+    'Riskgroup',      # Groupe de risque
+]
+
+def select_important_features(df):
+    """Garde seulement les variables importantes."""
+    cols = [c for c in IMPORTANT_FEATURES if c in df.columns]
+    return df[cols]
