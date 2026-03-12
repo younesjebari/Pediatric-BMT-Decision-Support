@@ -27,35 +27,38 @@ def optimize_memory(df):
 
 def handle_missing_values(df):
     """
-    Colonnes numériques    → médiane
+    Colonnes numériques → médiane
     Colonnes catégorielles → valeur la plus fréquente
     """
     df = df.copy()
     
-    # Remplace None par np.nan
-    df = df.fillna(np.nan)
-    
-    # Convertit les colonnes object en string pour sklearn
-    for col in df.select_dtypes(include=["object"]).columns:
-        df[col] = df[col].astype(str).replace("nan", np.nan)
-
+    # 1. Traiter les numériques
     num_cols = df.select_dtypes(include=["number"]).columns
-    cat_cols = df.select_dtypes(include=["object"]).columns
-
     if len(num_cols) > 0:
         imputer_num = SimpleImputer(strategy="median")
         df[num_cols] = imputer_num.fit_transform(df[num_cols])
 
+    # 2. Traiter les catégorielles (C'est ici que ça plantait)
+    cat_cols = df.select_dtypes(include=["object"]).columns
     if len(cat_cols) > 0:
+        # On remplace d'abord les None par des strings vides ou une valeur explicite
+        # pour éviter l'ambiguïté que Pandas n'aime pas
+        df[cat_cols] = df[cat_cols].fillna("missing_value")
+        
         imputer_cat = SimpleImputer(strategy="most_frequent")
         df[cat_cols] = imputer_cat.fit_transform(df[cat_cols])
 
     return df
 
 def handle_outliers(df, factor=3.0):
-    """Supprime les valeurs aberrantes avec la methode IQR."""
+    """
+    Cap les outliers avec la méthode IQR.
+    Conservateur (factor=3.0) pour préserver
+    les valeurs médicales extrêmes mais réelles.
+    """
     df = df.copy()
     num_cols = df.select_dtypes(include=["number"]).columns
+    
     for col in num_cols:
         q1 = df[col].quantile(0.25)
         q3 = df[col].quantile(0.75)
