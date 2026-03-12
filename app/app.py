@@ -18,66 +18,45 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'IBM Plex Sans', sans-serif;
-}
-.stApp {
-    background: #0a0f1e;
-    color: #e2e8f0;
-}
-section[data-testid="stSidebar"] {
-    background: #0d1424;
-    border-right: 1px solid #1e3a5f;
-}
+html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
+
+/* Supprimer la barre blanche en haut */
+header[data-testid="stHeader"] { background: #0a0f1e !important; height: 0px !important; }
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+.block-container { padding-top: 1rem !important; }
+
+.stApp { background: #0a0f1e; color: #e2e8f0; }
+section[data-testid="stSidebar"] { background: #0d1424; border-right: 1px solid #1e3a5f; }
+
 .main-title {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 2rem;
-    font-weight: 600;
-    color: #38bdf8;
-    letter-spacing: -0.5px;
-    margin-bottom: 0;
+    font-size: 2rem; font-weight: 600;
+    color: #38bdf8; letter-spacing: -0.5px; margin-bottom: 0;
 }
 .sub-title {
     font-family: 'IBM Plex Sans', sans-serif;
-    font-weight: 300;
-    color: #64748b;
-    font-size: 0.95rem;
-    margin-top: 4px;
-    margin-bottom: 2rem;
+    font-weight: 300; color: #64748b;
+    font-size: 0.95rem; margin-top: 4px; margin-bottom: 2rem;
 }
 .section-header {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: #38bdf8;
-    border-bottom: 1px solid #1e3a5f;
-    padding-bottom: 8px;
-    margin-bottom: 16px;
-    margin-top: 24px;
+    font-size: 0.75rem; font-weight: 600;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: #38bdf8; border-bottom: 1px solid #1e3a5f;
+    padding-bottom: 8px; margin-bottom: 16px; margin-top: 24px;
 }
 .result-card-success {
     background: linear-gradient(135deg, #052e16 0%, #064e3b 100%);
-    border: 1px solid #10b981;
-    border-radius: 12px;
-    padding: 2rem;
-    text-align: center;
+    border: 1px solid #10b981; border-radius: 12px; padding: 2rem; text-align: center;
 }
 .result-card-failure {
     background: linear-gradient(135deg, #1c0505 0%, #3b0606 100%);
-    border: 1px solid #ef4444;
-    border-radius: 12px;
-    padding: 2rem;
-    text-align: center;
+    border: 1px solid #ef4444; border-radius: 12px; padding: 2rem; text-align: center;
 }
 .result-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75rem;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    opacity: 0.7;
-    margin-bottom: 8px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;
+    letter-spacing: 3px; text-transform: uppercase; opacity: 0.7; margin-bottom: 8px;
 }
 .result-value { font-family: 'IBM Plex Mono', monospace; font-size: 2.5rem; font-weight: 600; }
 .result-success { color: #10b981; }
@@ -90,15 +69,9 @@ section[data-testid="stSidebar"] {
 .metric-value { font-size: 1.6rem; font-weight: 600; color: #38bdf8; font-family: 'IBM Plex Mono', monospace; }
 .stButton > button {
     background: linear-gradient(135deg, #0ea5e9, #38bdf8);
-    color: #0a0f1e;
-    font-family: 'IBM Plex Mono', monospace;
-    font-weight: 600;
-    letter-spacing: 1px;
-    border: none;
-    border-radius: 8px;
-    padding: 0.6rem 2rem;
-    width: 100%;
-    font-size: 0.9rem;
+    color: #0a0f1e; font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600; letter-spacing: 1px; border: none;
+    border-radius: 8px; padding: 0.6rem 2rem; width: 100%; font-size: 0.9rem;
 }
 hr { border-color: #1e3a5f; }
 .stSelectbox label, .stNumberInput label, .stSlider label { color: #94a3b8 !important; font-size: 0.85rem !important; }
@@ -109,8 +82,6 @@ hr { border-color: #1e3a5f; }
 # ─── Chargement du modèle ──────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
-    """Charge le modèle depuis models/final_model.joblib"""
-    # Cherche le modèle dans plusieurs emplacements possibles
     possible_paths = [
         'models/final_model.joblib',
         '../models/final_model.joblib',
@@ -124,65 +95,48 @@ def load_model():
 
 model = load_model()
 
+# ─── Mapping ABO ───────────────────────────────────────────────────────────────
+ABO_LABELS = {"0": "O", "1": "A", "-1": "B", "2": "AB"}
+
 # ─── Fonction de construction du vecteur de features ──────────────────────────
 def build_feature_vector(inputs: dict) -> pd.DataFrame:
-    """
-    Mappe les inputs utilisateur vers les 35 features du dataset BMT
-    dans le même ordre que lors de l'entraînement.
-    Colonnes exclues à l'entraînement : survival_status, survival_time
-    """
-    # Mapping des inputs vers les valeurs numériques du dataset
     row = {
-        # --- Patient / Receveur ---
-        'Recipientgender':   1 if inputs['recipient_gender'] == 'Masculin' else 0,
-        'Recipientage':      inputs['recipient_age'],
-        'Recipientage10':    1 if inputs['recipient_age'] >= 10 else 0,
-        'Recipientageint':   0 if inputs['recipient_age'] <= 5 else (1 if inputs['recipient_age'] <= 10 else 2),
-        'Rbodymass':         inputs['recipient_body_mass'],
-        'RecipientCMV':      1 if inputs['cmv_status'] == 'Positif' else 0,
-        'RecipientABO':      int(inputs['recipient_abo']),
-        'RecipientRh':       1 if inputs['recipient_rh'] == 'Positif (+)' else 0,
-
-        # --- Donneur ---
-        'Stemcellsource':    1 if inputs['stem_cell_source'] in ['PBSC', 'BM+PBSC'] else 0,
-        'Donorage':          inputs['donor_age'],
-        'Donorage35':        1 if inputs['donor_age'] >= 35 else 0,
-        'DonorCMV':          1 if inputs['cmv_donor'] == 'Positif' else 0,
-        'DonorABO':          int(inputs['donor_abo']),
-
-        # --- Compatibilité ---
-        'Gendermatch':       1 if inputs['gender_match'] == 'Femme → Homme' else 0,
-        'ABOmatch':          0 if inputs['abo_match'] == 'Compatible' else 1,
-        'CMVstatus':         inputs['cmv_combined'],   # 0-3
-        'HLAmatch':          inputs['hla_match_num'],  # 0=10/10, 1=9/10, 2=8/10, 3=7/10
-        'HLAmismatch':       0 if inputs['hla_match_num'] == 0 else 1,
-        'Antigen':           inputs['antigen'],
-        'Alel':              inputs['allele'],
-        'HLAgrI':            inputs['hla_gri'],
-
-        # --- Maladie ---
-        'Disease':           inputs['disease_num'],
-        'Diseasegroup':      1 if inputs['disease_group'] == 'malignant' else 0,
-        'Riskgroup':         1 if inputs['risk_group'] == 'Haut risque' else 0,
-        'Txpostrelapse':     1 if inputs['txpostrelapse'] == 'Oui' else 0,
-        'Relapse':           1 if inputs['relapse'] == 'Oui' else 0,
-
-        # --- GvHD ---
-        'IIIV':              1 if inputs['iiiv'] == 'Oui' else 0,
-        'aGvHDIIIIV':        1 if inputs['agvhd'] == 'Non' else 0,   # encodé inversé dans le dataset
-        'extcGvHD':          1 if inputs['extcgvhd'] == 'Non' else 0, # encodé inversé dans le dataset
-
-        # --- Cellules ---
-        'CD34kgx10d6':       inputs['cd34_day'],
-        'CD3dkgx10d8':       inputs['cd3_day'],
-        'CD3dCD34':          inputs['cd3_day'] / inputs['cd34_day'] if inputs['cd34_day'] > 0 else 0,
-
-        # --- Récupération (renseignés post-greffe, on met la médiane) ---
-        'ANCrecovery':       15.0,
-        'PLTrecovery':       22.0,
+        'Recipientgender':  1 if inputs['recipient_gender'] == 'Masculin' else 0,
+        'Recipientage':     inputs['recipient_age'],
+        'Recipientage10':   1 if inputs['recipient_age'] >= 10 else 0,
+        'Recipientageint':  0 if inputs['recipient_age'] <= 5 else (1 if inputs['recipient_age'] <= 10 else 2),
+        'Rbodymass':        inputs['recipient_body_mass'],
+        'RecipientCMV':     1 if inputs['cmv_status'] == 'Positif' else 0,
+        'RecipientABO':     int(inputs['recipient_abo']),
+        'RecipientRh':      1 if inputs['recipient_rh'] == 'Positif (+)' else 0,
+        'Stemcellsource':   1 if inputs['stem_cell_source'] in ['PBSC', 'BM+PBSC'] else 0,
+        'Donorage':         inputs['donor_age'],
+        'Donorage35':       1 if inputs['donor_age'] >= 35 else 0,
+        'DonorCMV':         1 if inputs['cmv_donor'] == 'Positif' else 0,
+        'DonorABO':         int(inputs['donor_abo']),
+        'Gendermatch':      1 if inputs['gender_match'] == 'Femme → Homme' else 0,
+        'ABOmatch':         0 if inputs['abo_match'] == 'Compatible' else 1,
+        'CMVstatus':        inputs['cmv_combined'],
+        'HLAmatch':         inputs['hla_match_num'],
+        'HLAmismatch':      0 if inputs['hla_match_num'] == 0 else 1,
+        'Antigen':          inputs['antigen'],
+        'Alel':             inputs['allele'],
+        'HLAgrI':           inputs['hla_gri'],
+        'Disease':          inputs['disease_num'],
+        'Diseasegroup':     1 if inputs['disease_group'] == 'malignant' else 0,
+        'Riskgroup':        1 if inputs['risk_group'] == 'Haut risque' else 0,
+        'Txpostrelapse':    1 if inputs['txpostrelapse'] == 'Oui' else 0,
+        'Relapse':          1 if inputs['relapse'] == 'Oui' else 0,
+        'IIIV':             1 if inputs['iiiv'] == 'Oui' else 0,
+        'aGvHDIIIIV':       1 if inputs['agvhd'] == 'Non' else 0,
+        'extcGvHD':         1 if inputs['extcgvhd'] == 'Non' else 0,
+        'CD34kgx10d6':      inputs['cd34_day'],
+        'CD3dkgx10d8':      inputs['cd3_day'],
+        'CD3dCD34':         inputs['cd3_day'] / inputs['cd34_day'] if inputs['cd34_day'] > 0 else 0,
+        'ANCrecovery':      15.0,
+        'PLTrecovery':      22.0,
         'time_to_aGvHD_III_IV': 1000000.0,
     }
-
     return pd.DataFrame([row])
 
 
@@ -190,48 +144,59 @@ def build_feature_vector(inputs: dict) -> pd.DataFrame:
 _, col_title = st.columns([1, 8])
 with col_title:
     st.markdown('<div class="main-title">🩺 Pediatric BMT Decision Support</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">Système d\'aide à la décision pour la greffe de moelle osseuse pédiatrique</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Système d\'aide à la décision pour la greffe de moelle osseuse pédiatrique · Random Forest + SHAP</div>', unsafe_allow_html=True)
 
 if model is None:
     st.error("⚠️ Modèle introuvable. Lancez d'abord : `python src/train_model.py`")
 
 st.markdown("---")
 
-# ─── Sidebar – Patient / Donneur ───────────────────────────────────────────────
+# ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('<div class="section-header">Patient (Receveur)</div>', unsafe_allow_html=True)
-    recipient_age         = st.number_input("Âge du receveur (ans)", 0.0, 20.0, 8.0, 0.5)
-    recipient_gender      = st.selectbox("Sexe du receveur", ["Masculin", "Féminin"])
-    recipient_body_mass   = st.number_input("Masse corporelle (kg)", 1.0, 150.0, 25.0, 0.5)
-    recipient_rh          = st.selectbox("Facteur Rh receveur", ["Positif (+)", "Négatif (-)"])
-    cmv_status            = st.selectbox("Statut CMV receveur", ["Négatif", "Positif"])
-    recipient_abo         = st.selectbox("Groupe ABO receveur", ["0", "1", "-1", "2"],
-                                         format_func=lambda x: {"0":"O","1":"A","-1":"B","2":"AB"}[x])
+    recipient_age       = st.number_input("Âge du receveur (ans)", 0.0, 20.0, 8.0, 0.5)
+    recipient_gender    = st.selectbox("Sexe du receveur", ["Masculin", "Féminin"])
+    recipient_body_mass = st.number_input("Masse corporelle (kg)", 1.0, 150.0, 25.0, 0.5)
+    recipient_rh        = st.selectbox("Facteur Rh receveur", ["Positif (+)", "Négatif (-)"])
+    cmv_status          = st.selectbox("Statut CMV receveur", ["Négatif", "Positif"])
+    recipient_abo       = st.selectbox(
+        "Groupe sanguin receveur",
+        options=["0", "1", "-1", "2"],
+        format_func=lambda x: ABO_LABELS[x]
+    )
 
     st.markdown('<div class="section-header">Donneur</div>', unsafe_allow_html=True)
-    donor_age             = st.number_input("Âge du donneur (ans)", 0.0, 80.0, 35.0, 0.5)
-    donor_gender          = st.selectbox("Sexe du donneur", ["Masculin", "Féminin"])
-    cmv_donor             = st.selectbox("Statut CMV donneur", ["Négatif", "Positif"])
-    donor_abo             = st.selectbox("Groupe ABO donneur", ["0", "1", "-1", "2"],
-                                         format_func=lambda x: {"0":"O","1":"A","-1":"B","2":"AB"}[x])
+    donor_age    = st.number_input("Âge du donneur (ans)", 0.0, 80.0, 35.0, 0.5)
+    donor_gender = st.selectbox("Sexe du donneur", ["Masculin", "Féminin"])
+    cmv_donor    = st.selectbox("Statut CMV donneur", ["Négatif", "Positif"])
+    donor_abo    = st.selectbox(
+        "Groupe sanguin donneur",
+        options=["0", "1", "-1", "2"],
+        format_func=lambda x: ABO_LABELS[x]
+    )
 
     st.markdown('<div class="section-header">Compatibilité</div>', unsafe_allow_html=True)
-    gender_match          = st.selectbox("Type correspondance genre", ["Autre", "Femme → Homme"])
-    abo_match             = st.selectbox("Compatibilité ABO", ["Compatible", "Incompatible"])
+    gender_match = st.selectbox("Type correspondance genre", ["Autre", "Femme → Homme"])
+    abo_match    = st.selectbox("Compatibilité ABO", ["Compatible", "Incompatible"])
 
-    # CMV combined status (0=D-/R-, 1=D+/R-, 2=D-/R+, 3=D+/R+)
-    _cmv_map = {"Négatif": 0, "Positif": 1}
+    _cmv_map     = {"Négatif": 0, "Positif": 1}
     cmv_combined = _cmv_map[cmv_donor] * 2 + _cmv_map[cmv_status]
 
-# ─── Main – Données cliniques ──────────────────────────────────────────────────
+    # Info groupes sanguins
+    st.markdown(f"""
+    <div style="background:#0a1628;border:1px solid #1e3a5f;border-radius:8px;padding:10px;margin-top:8px;font-size:0.78rem;color:#64748b;">
+    🩸 Receveur : <b style="color:#38bdf8">{ABO_LABELS[recipient_abo]}</b> &nbsp;|&nbsp;
+    Donneur : <b style="color:#38bdf8">{ABO_LABELS[donor_abo]}</b>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ─── Main ──────────────────────────────────────────────────────────────────────
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown('<div class="section-header">Données Cliniques</div>', unsafe_allow_html=True)
-
     disease_label = st.selectbox("Maladie", ["ALL", "AML", "chronic", "nonmalignant", "lymphoma"])
     disease_num   = {"ALL": 0, "AML": 1, "chronic": 2, "nonmalignant": 3, "lymphoma": 4}[disease_label]
-
     disease_group = st.selectbox("Groupe de maladie", ["malignant", "nonmalignant"])
     risk_group    = st.selectbox("Groupe de risque", ["Bas risque", "Haut risque"])
     txpostrelapse = st.selectbox("2ème greffe post-rechute ?", ["Non", "Oui"])
@@ -239,41 +204,38 @@ with col1:
 
 with col2:
     st.markdown('<div class="section-header">Greffe & Traitement</div>', unsafe_allow_html=True)
-
     stem_cell_source = st.selectbox("Source cellules souches", ["BM+PBSC", "PBSC", "BM"])
     cd34_day         = st.number_input("CD34+ (×10⁶/kg)", 0.0, 60.0, 5.0, 0.1)
     cd3_day          = st.number_input("CD3+ (×10⁸/kg)", 0.0, 20.0, 1.0, 0.1)
 
     st.markdown('<div class="section-header">Compatibilité HLA</div>', unsafe_allow_html=True)
-    hla_label   = st.selectbox("Correspondance HLA", ["10/10", "9/10", "8/10", "7/10"])
+    hla_label     = st.selectbox("Correspondance HLA", ["10/10", "9/10", "8/10", "7/10"])
     hla_match_num = {"10/10": 0, "9/10": 1, "8/10": 2, "7/10": 3}[hla_label]
-
-    antigen = st.selectbox("Différences antigènes", [-1, 0, 1, 2],
-                           format_func=lambda x: {-1:"Aucune", 0:"1 diff", 1:"2 diff", 2:"3 diff"}[x])
-    allele  = st.selectbox("Différences allèles", [-1, 0, 1, 2, 3],
-                           format_func=lambda x: {-1:"Aucune", 0:"1 diff", 1:"2 diff", 2:"3 diff", 3:"4 diff"}[x])
-    hla_gri = st.selectbox("HLA groupe (HLAgrI)", [0, 1, 2, 3, 4, 5, 7],
-                            format_func=lambda x: f"Groupe {x}")
+    antigen       = st.selectbox("Différences antigènes", [-1, 0, 1, 2],
+                                 format_func=lambda x: {-1:"Aucune", 0:"1 diff", 1:"2 diff", 2:"3 diff"}[x])
+    allele        = st.selectbox("Différences allèles", [-1, 0, 1, 2, 3],
+                                 format_func=lambda x: {-1:"Aucune", 0:"1 diff", 1:"2 diff", 2:"3 diff", 3:"4 diff"}[x])
+    hla_gri       = st.selectbox("HLA groupe (HLAgrI)", [0, 1, 2, 3, 4, 5, 7],
+                                 format_func=lambda x: f"Groupe {x}")
 
 with col3:
     st.markdown('<div class="section-header">Complications GvHD</div>', unsafe_allow_html=True)
-    iiiv    = st.selectbox("GvHD aigu stade II-III-IV ?", ["Non", "Oui"])
-    agvhd   = st.selectbox("GvHD aigu stade III-IV ?", ["Non", "Oui"])
+    iiiv     = st.selectbox("GvHD aigu stade II-III-IV ?", ["Non", "Oui"])
+    agvhd    = st.selectbox("GvHD aigu stade III-IV ?", ["Non", "Oui"])
     extcgvhd = st.selectbox("GvHD chronique étendue ?", ["Non", "Oui"])
 
 st.markdown("---")
 
-# ─── Bouton de prédiction ──────────────────────────────────────────────────────
+# ─── Bouton ────────────────────────────────────────────────────────────────────
 _, col_btn, _ = st.columns([2, 1, 2])
 with col_btn:
     predict_btn = st.button("⚡ ANALYSER")
 
-# ─── Résultat ─────────────────────────────────────────────────────────────────
+# ─── Résultat ──────────────────────────────────────────────────────────────────
 if predict_btn:
     if model is None:
         st.error("Modèle non chargé. Impossible de prédire.")
     else:
-        # Construire le vecteur de features
         inputs = dict(
             recipient_age=recipient_age, recipient_gender=recipient_gender,
             recipient_body_mass=recipient_body_mass, recipient_rh=recipient_rh,
@@ -288,22 +250,18 @@ if predict_btn:
         )
 
         X_input = build_feature_vector(inputs)
-
-        # Réordonner les colonnes selon l'ordre d'entraînement
         try:
             X_input = X_input[model.feature_names_in_]
         except AttributeError:
-            pass  # Ancienne version de sklearn, on laisse l'ordre tel quel
+            pass
 
-        # Prédiction
-        prediction     = model.predict(X_input)[0]           # 0 = décès, 1 = survie
-        proba          = model.predict_proba(X_input)[0]      # [p_deces, p_survie]
-        success_prob   = round(float(proba[1]), 3)
-        failure_prob   = round(float(proba[0]), 3)
-        label          = "Survie" if prediction == 1 else "Décès"
+        prediction   = model.predict(X_input)[0]
+        proba        = model.predict_proba(X_input)[0]
+        success_prob = round(float(proba[1]), 3)
+        failure_prob = round(float(proba[0]), 3)
 
         st.markdown("---")
-        st.markdown('<div class="section-header">Résultat de la Prédiction (Modèle ML)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Résultat de la Prédiction (Modèle ML · Random Forest)</div>', unsafe_allow_html=True)
 
         _, col_res, _ = st.columns([1, 2, 1])
         with col_res:
@@ -350,43 +308,44 @@ if predict_btn:
 
         # ── SHAP ──
         st.markdown('<div class="section-header">Explication SHAP (Importances des Variables)</div>', unsafe_allow_html=True)
-        
-    try:
-    import shap
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(X_input)
+        try:
+            import shap
+            explainer   = shap.TreeExplainer(model)
+            shap_values = explainer.shap_values(X_input)
 
-    # Correction : gérer les différentes formes de shap_values
-    if isinstance(shap_values, list):
-        sv = shap_values[1][0]
-    elif shap_values.ndim == 3:
-        sv = shap_values[0, :, 1]
-    else:
-        sv = shap_values[0]
+            # Correction : gérer toutes les formes possibles de shap_values
+            if isinstance(shap_values, list):
+                sv = np.array(shap_values[1]).flatten()
+            elif hasattr(shap_values, 'ndim') and shap_values.ndim == 3:
+                sv = shap_values[0, :, 1]
+            elif hasattr(shap_values, 'ndim') and shap_values.ndim == 2:
+                sv = shap_values[0]
+            else:
+                sv = np.array(shap_values).flatten()
 
-    feature_names = list(X_input.columns)
-    shap_df = pd.DataFrame({
-        'Feature': feature_names,
-        'SHAP Value': sv,
-        'Abs': np.abs(sv)
-    }).sort_values('Abs', ascending=False).head(12)
+            feature_names = list(X_input.columns)
+            shap_df = pd.DataFrame({
+                'Feature':    feature_names,
+                'SHAP Value': sv,
+                'Abs':        np.abs(sv)
+            }).sort_values('Abs', ascending=False).head(12)
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    fig.patch.set_facecolor('#0d1424')
-    ax.set_facecolor('#0d1424')
-    colors = ['#10b981' if v >= 0 else '#ef4444' for v in shap_df['SHAP Value']]
-    ax.barh(shap_df['Feature'][::-1], shap_df['SHAP Value'][::-1], color=colors[::-1])
-    ax.axvline(0, color='#64748b', linewidth=0.8)
-    ax.set_xlabel('Valeur SHAP', color='#94a3b8')
-    ax.tick_params(colors='#94a3b8')
-    for spine in ax.spines.values():
-        spine.set_edgecolor('#1e3a5f')
-    st.pyplot(fig)
-    plt.close()
-    st.caption("🟢 Vert = favorise la survie · 🔴 Rouge = défavorise la survie")
-except Exception as e:
-    st.warning(f"SHAP non disponible : {e}")
-          
+            fig, ax = plt.subplots(figsize=(8, 4))
+            fig.patch.set_facecolor('#0d1424')
+            ax.set_facecolor('#0d1424')
+            colors = ['#10b981' if v >= 0 else '#ef4444' for v in shap_df['SHAP Value']]
+            ax.barh(shap_df['Feature'][::-1], shap_df['SHAP Value'][::-1], color=colors[::-1])
+            ax.axvline(0, color='#64748b', linewidth=0.8)
+            ax.set_xlabel('Valeur SHAP (impact sur la prédiction)', color='#94a3b8')
+            ax.tick_params(colors='#94a3b8')
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#1e3a5f')
+            st.pyplot(fig)
+            plt.close()
+            st.caption("🟢 Vert = favorise la survie · 🔴 Rouge = défavorise la survie")
+
+        except Exception as e:
+            st.warning(f"SHAP non disponible : {e}")
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.info("ℹ️ Ce résultat est une aide à la décision. Le diagnostic final reste sous la responsabilité du médecin.", icon="ℹ️")
@@ -395,6 +354,6 @@ except Exception as e:
 st.markdown("---")
 st.markdown("""
 <div style="text-align:center;color:#334155;font-size:0.75rem;font-family:'IBM Plex Mono',monospace;">
-    Pediatric BMT Decision Support System · Projet IA Médicale · 2026
+    Pediatric BMT Decision Support System · Projet IA Médicale · École Centrale Casablanca · 2026
 </div>
 """, unsafe_allow_html=True)
