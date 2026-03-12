@@ -24,7 +24,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 header[data-testid="stHeader"] { background: #0a0f1e !important; height: 0px !important; }
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
-.block-container { padding-top: 1rem !important; }
+.block-container { padding-top: 3rem !important; }
 
 .stApp { background: #0a0f1e; color: #e2e8f0; }
 section[data-testid="stSidebar"] { background: #0d1424; border-right: 1px solid #1e3a5f; }
