@@ -1,13 +1,13 @@
 import streamlit as st
 
-st.title("🩺 Prédiction Greffe de Moelle Osseuse")
+st.title(" Prédiction Greffe de Moelle Osseuse")
 
-st.subheader("📋 Données du Patient")
+st.subheader(" Données du Patient")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("### 👶 Receveur")
+    st.markdown("### Receveur")
     recipientage = st.number_input(
         "Âge du receveur (ans)",
         min_value=0.0, max_value=25.0,
@@ -33,7 +33,7 @@ with col1:
     )
 
 with col2:
-    st.markdown("### 💉 Traitement")
+    st.markdown("###  Traitement")
     cd34 = st.number_input(
         "CD34+ dose (×10⁶/kg)",
         min_value=0.0, max_value=30.0,
@@ -58,14 +58,14 @@ with col2:
         options=['low risk', 'high risk']
     )
 
-st.markdown("### 🔬 Récupération")
+st.markdown("###  Récupération")
 plt_recovery = st.selectbox(
     "Récupération plaquettes ?",
     options=['Yes', 'No']
 )
 
 # Bouton prédiction
-if st.button("🔬 ANALYSER", use_container_width=True):
+if st.button(" ANALYSER", use_container_width=True):
     
     # Créer le dictionnaire des features
     input_data = {
@@ -82,5 +82,5 @@ if st.button("🔬 ANALYSER", use_container_width=True):
         'Riskgroup':    risk_group,
     }
     
-    st.success("Données enregistrées ✅")
+    st.success("Données enregistrées ")
     st.json(input_data)
