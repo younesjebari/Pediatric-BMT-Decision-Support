@@ -9,7 +9,7 @@ import joblib
 import os
 
 def train():
-    print("🚀 Démarrage de la comparaison des modèles...")
+    print(" Démarrage de la comparaison des modèles...")
     
     # 1. Chargement et Nettoyage
     raw_data, _ = arff.loadarff('data/bone-marrow.arff')
@@ -50,7 +50,7 @@ def train():
     # 4. Sauvegarde du meilleur modèle 
     os.makedirs('models', exist_ok=True)
     joblib.dump(best_model, 'models/final_model.joblib')
-    print(f"🏆 Meilleur modèle sauvegardé : {best_model.__class__.__name__}")
+    print(f" Meilleur modèle sauvegardé : {best_model.__class__.__name__}")
 
 if __name__ == "__main__":
     train()
