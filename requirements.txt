@@ -1,33 +1,20 @@
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn
-xgboost
-lightgbm
-shap
-streamlit
-# Data
+# Noyau & Data
 numpy>=1.24
 pandas>=2.0
 scipy>=1.11
 
-# ML
+# Machine Learning & Explicabilité (Ton domaine !)
 scikit-learn>=1.4
 xgboost>=2.0
 lightgbm>=4.3
 imbalanced-learn>=0.12
 shap>=0.44
 
-# Interface
+# Interface & Visualisation
 streamlit>=1.33
-
-# Visualisation
 matplotlib>=3.8
 seaborn>=0.13
 
-# Tests
+# Tests & Utilitaires
 pytest>=8.0
-
-# Utilitaires
 joblib>=1.3
