@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Accueil{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero" id="hero">
+    <div class="hero-inner">
+        <div class="animate-fade-in-up">
+            <div class="hero-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Aide a la Decision Medicale par IA
+            </div>
+            <h1 class="hero-title">
+                Predire le Succes de la <span class="gradient-text">Greffe de Moelle</span> avec l'IA Explicable
+            </h1>
+            <p class="hero-desc">
+                Exploitez le Machine Learning et SHAP pour predire les resultats des greffes de moelle osseuse pediatriques. Un outil d'aide a la decision transparent et interpretable pour les cliniciens.
+            </p>
+            <div class="hero-actions">
+                <a href="{{ url_for('predict') }}" class="btn btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    Lancer une Prediction
+                </a>
+                <a href="#features" class="btn btn-outline">En Savoir Plus</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <div class="stat-value text-primary">76.3%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value text-teal">70.0%</div>
+                    <div class="stat-label">ROC-AUC</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value text-green">100%</div>
+                    <div class="stat-label">Explicable</div>
+                </div>
+            </div>
+        </div>
+        <div class="hero-demo animate-scale-in delay-300">
+            <div class="hero-demo-header">
+                <span class="demo-dot" style="background:#ef4444"></span>
+                <span class="demo-dot" style="background:#f59e0b"></span>
+                <span class="demo-dot" style="background:#22c55e"></span>
+                <span class="hero-demo-title">Demo Prediction en Direct</span>
+            </div>
+            <div class="demo-result">
+                <div class="demo-heart">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                    </svg>
+                    <div class="demo-heart-ping"></div>
+                </div>
+                <div class="demo-percentage gradient-text">87.3%</div>
+                <div class="demo-label">Probabilite de Succes</div>
+            </div>
+            <div class="demo-features">
+                <div class="demo-feature">
+                    <span class="demo-feature-name">Age Donneur</span>
+                    <div class="demo-feature-bar"><div class="demo-feature-bar-fill" style="width:85%"></div></div>
+                    <span class="demo-feature-value">85%</span>
+                </div>
+                <div class="demo-feature">
+                    <span class="demo-feature-name">HLA Match</span>
+                    <div class="demo-feature-bar"><div class="demo-feature-bar-fill" style="width:72%"></div></div>
+                    <span class="demo-feature-value">72%</span>
+                </div>
+                <div class="demo-feature">
+                    <span class="demo-feature-name">Maladie</span>
+                    <div class="demo-feature-bar"><div class="demo-feature-bar-fill" style="width:64%"></div></div>
+                    <span class="demo-feature-value">64%</span>
+                </div>
+            </div>
+            <a href="{{ url_for('predict') }}" class="btn btn-gradient" style="margin-top:1.5rem">Essayer l'Analyse Complete</a>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="section" id="features">
+    <div class="section-inner">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg>
+                Fonctionnalites
+            </div>
+            <h2 class="section-title">IA Explicable pour la <span class="gradient-text">Medecine</span></h2>
+            <p class="section-desc">Des outils avances de Machine Learning pour aider les cliniciens a prendre des decisions eclairees sur les greffes de moelle osseuse pediatriques.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card animate-fade-in-up">
+                <div class="feature-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <h3>IA Explicable</h3>
+                <p>Interpretabilite basee sur SHAP pour comprendre chaque prediction. Transparence totale des decisions du modele.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-100">
+                <div class="feature-icon teal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <h3>Haute Precision</h3>
+                <p>Modele XGBoost atteignant 76.3% de precision et 70.0% de ROC-AUC sur les donnees de validation.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-200">
+                <div class="feature-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Validation Clinique</h3>
+                <p>Entraine sur des donnees medicales reelles de 187 patients pediatriques avec 37 attributs cliniques.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-300">
+                <div class="feature-icon amber">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <h3>Analyse en Temps Reel</h3>
+                <p>Predictions instantanees avec analyse SHAP individuelle pour chaque patient.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-400">
+                <div class="feature-icon purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <h3>Aide a la Decision</h3>
+                <p>Outil concu pour accompagner les medecins dans leur prise de decision, pas pour les remplacer.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-500">
+                <div class="feature-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                </div>
+                <h3>11 Variables Cles</h3>
+                <p>Selection statistique rigoureuse (p-value &lt; 0.05) des variables les plus predictives parmi 37 attributs.</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
