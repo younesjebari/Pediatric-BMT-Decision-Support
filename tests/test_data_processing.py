@@ -19,14 +19,25 @@ def sample_df():
     })
 
 def test_memory_optimization_results(sample_df):
-    """Vérifie la réduction de 50% de la mémoire."""
+    """Vérifie la réduction de la mémoire (float64 -> float32, int64 -> int32)."""
+    original_memory = sample_df.memory_usage(deep=True).sum()
     optimized_df = optimize_memory(sample_df.copy())
+    
     # Vérifie que les types sont bien passés en 32-bit
     assert optimized_df["Recipientage"].dtype == 'float32'
     assert optimized_df["Relapse"].dtype == 'int32'
+    
+    # Vérifie une réduction de mémoire (au moins 20% pour être sûr)
+    optimized_memory = optimized_df.memory_usage(deep=True).sum()
+    assert optimized_memory < original_memory * 0.8, f"Mémoire non réduite : {optimized_memory} >= {original_memory}"
 
 def test_missing_values_handling():
     """Vérifie que l'imputation fonctionne pour tes variables."""
     df_with_nan = pd.DataFrame({"Recipientage": [10.0, np.nan, 12.0]})
     df_cleaned = handle_missing_values(df_with_nan)
+    
+    # Vérifie qu'il n'y a plus de NaN
     assert df_cleaned["Recipientage"].isnull().sum() == 0
+    
+    # Vérifie que la valeur imputée est la médiane (10.0)
+    assert df_cleaned["Recipientage"].iloc[1] == 10.0
