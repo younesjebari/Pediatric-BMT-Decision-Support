@@ -46,6 +46,7 @@ def evaluate():
     X = df.drop(columns=['survival_status'])
     y = pd.to_numeric(df['survival_status'], errors='coerce').fillna(0).astype(int)
 
+
     # 4. Prédictions
     y_pred = model.predict(X)
     y_proba = model.predict_proba(X)[:, 1]
