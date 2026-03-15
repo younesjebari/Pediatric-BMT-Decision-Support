@@ -342,90 +342,72 @@ def make_shap_figure_web(shap_vals):
 # ─────────────────────────────────────────────
 #  EN-TÊTE PDF (matplotlib, propre)
 # ─────────────────────────────────────────────
-def make_pdf_header(medecin_name, specialite):
+def make_logo_png_buf():
     """
-    Barre d'en-tête PDF propre : fond uni bleu marine + logo dessiné en SVG-style
-    via des formes matplotlib précises. Pas de imshow, pas de cercle blanc parasite.
+    Logo PediaBMT identique au SVG de la page login.
     """
-    W, H = 17/2.54, 2.6/2.54
-    fig  = plt.figure(figsize=(W, H))
-    ax   = fig.add_axes([0, 0, 1, 1])
+    fig = plt.figure(figsize=(1.6, 1.6))
+    ax  = fig.add_axes([0, 0, 1, 1])
+    fig.patch.set_facecolor('none')
+    ax.set_facecolor('none')
 
-    # ── Fond uni dégradé horizontal ──
-    n = 300
-    for i in range(n):
-        t  = i / n
-        r0 = 13  + int((26 -13)*t)
-        g0 = 43  + int((78 -43)*t)
-        b0 = 85  + int((181-85)*t)
-        ax.axvspan(i/n, (i+1)/n, ymin=0, ymax=1,
-                   color=(r0/255, g0/255, b0/255), zorder=0)
+    # ── Dégradé diagonal bleu marine → bleu (couches concentriques) ──
+    n = 100
+    for i in range(n, 0, -1):
+        t   = 1 - (i / n)          # 0 = bord (foncé) → 1 = centre (clair)
+        t   = t * 0.7              # réduire l'amplitude
+        r_c = (13  + t*(26  - 13 )) / 255
+        g_c = (43  + t*(78  - 43 )) / 255
+        b_c = (85  + t*(181 - 85 )) / 255
+        ax.add_patch(plt.Circle((0.5, 0.5), i/n * 0.485,
+                                 facecolor=(r_c, g_c, b_c),
+                                 edgecolor='none', zorder=1))
 
-    # ── Logo : cercle bleu foncé ──
-    # Coordonnées en fraction de figure [0..1]x[0..1]
-    cx, cy, cr = 0.062, 0.50, 0.36
+    # Anneau contour bleu clair (identique au SVG stroke="#3a7fd4")
+    ax.add_patch(plt.Circle((0.5, 0.5), 0.485,
+                             facecolor='none',
+                             edgecolor='#3a7fd4',
+                             linewidth=3.0, zorder=2))
 
-    # Cercle de fond bleu marine
-    ax.add_patch(plt.Circle((cx, cy), cr,
-                             facecolor='#0a2040', edgecolor='#3a7fd4',
-                             linewidth=0.8, zorder=2,
-                             transform=ax.transData))
+    # Anneau intérieur blanc semi-transparent
+    ax.add_patch(plt.Circle((0.5, 0.5), 0.445,
+                             facecolor='none',
+                             edgecolor='white',
+                             linewidth=0.8, alpha=0.15, zorder=2))
 
-    # Croix médicale blanche (deux rectangles arrondis)
-    cw = cr * 0.28   # demi-largeur barre
-    ch = cr * 0.72   # demi-hauteur barre
-    # Barre verticale
+    # ── Croix médicale blanche (proportions SVG : rx=6, w=32, h=84) ──
+    # Barre verticale  (x=84..116, y=58..142 sur 200px → 0.42..0.58, 0.29..0.71)
     ax.add_patch(patches.FancyBboxPatch(
-        (cx - cw, cy - ch), cw*2, ch*2,
-        boxstyle="round,pad=0.005",
-        facecolor='white', edgecolor='none', zorder=3,
-        transform=ax.transData))
-    # Barre horizontale
+        (0.422, 0.185), 0.156, 0.630,
+        boxstyle="round,pad=0.025",
+        facecolor='white', edgecolor='none', zorder=3))
+    # Barre horizontale (x=58..142, y=84..116 → 0.29..0.71, 0.42..0.58)
     ax.add_patch(patches.FancyBboxPatch(
-        (cx - ch, cy - cw), ch*2, cw*2,
-        boxstyle="round,pad=0.005",
-        facecolor='white', edgecolor='none', zorder=3,
-        transform=ax.transData))
+        (0.185, 0.422), 0.630, 0.156,
+        boxstyle="round,pad=0.025",
+        facecolor='white', edgecolor='none', zorder=3))
 
-    # Cœur rouge au centre (2 cercles + triangle)
-    hs = cr * 0.20
-    hx, hy = cx, cy + cr*0.10
-    ax.add_patch(plt.Circle((hx - hs*0.52, hy + hs*0.18), hs*0.54,
-                             color='#e74c3c', zorder=4))
-    ax.add_patch(plt.Circle((hx + hs*0.52, hy + hs*0.18), hs*0.54,
-                             color='#e74c3c', zorder=4))
+    # Cœur rouge : 2 demi-cercles + triangle (identique au SVG)
+    hx, hy, hs = 0.500, 0.565, 0.115
+    ax.add_patch(plt.Circle((hx - hs*0.54, hy + hs*0.20), hs*0.58,
+                             facecolor='#e74c3c', edgecolor='none', zorder=4))
+    ax.add_patch(plt.Circle((hx + hs*0.54, hy + hs*0.20), hs*0.58,
+                             facecolor='#e74c3c', edgecolor='none', zorder=4))
     ax.add_patch(plt.Polygon(
-        [[hx - hs*1.05, hy + hs*0.18],
-         [hx + hs*1.05, hy + hs*0.18],
-         [hx,           hy - hs*0.95]],
-        color='#e74c3c', zorder=4))
-
-    # ── Séparateur vertical ──
-    ax.axvline(0.122, color=(1,1,1,0.2), linewidth=0.5, zorder=5)
-
-    # ── Texte gauche ──
-    ax.text(0.132, 0.68, "PediaBMT  |  Decision Support",
-            color='white', fontsize=10, fontweight='bold',
-            va='center', ha='left', transform=ax.transAxes)
-    ax.text(0.132, 0.27,
-            "Systeme d'aide a la decision — Greffes de moelle osseuse pediatriques",
-            color='white', fontsize=6.0, va='center', ha='left',
-            transform=ax.transAxes, alpha=0.85)
-
-    # ── Texte droite (médecin) ──
-    ax.text(0.97, 0.68, f"Dr. {medecin_name}",
-            color='white', fontsize=9.5, fontweight='bold',
-            va='center', ha='right', transform=ax.transAxes)
-    if specialite:
-        ax.text(0.97, 0.27, specialite,
-                color='white', fontsize=6.5, va='center', ha='right',
-                transform=ax.transAxes, alpha=0.82)
+        [[hx - hs*1.10, hy + hs*0.20],
+         [hx + hs*1.10, hy + hs*0.20],
+         [hx,           hy - hs*0.88]],
+        facecolor='#e74c3c', edgecolor='none', zorder=4))
 
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     ax.axis('off')
-    fig.patch.set_facecolor('#0d2b55')
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-    return fig
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=260,
+                bbox_inches='tight', transparent=True)
+    buf.seek(0); plt.close(fig)
+    return buf
 
 # ─────────────────────────────────────────────
 #  GÉNÉRATION PDF
@@ -438,11 +420,91 @@ def generate_pdf(r):
                                     Table, TableStyle, Image, HRFlowable, PageBreak)
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_CENTER
+    from reportlab.pdfgen import canvas as rl_canvas
+
+    W_PAGE, H_PAGE = A4  # largeur, hauteur en points
+
+    # ── Logo PNG généré une seule fois ──
+    logo_buf = make_logo_png_buf()
+
+    # ── Callback dessiné sur chaque page ──
+    def draw_page_header(canv, doc):
+        """
+        Dessine sur chaque page :
+        - Bande bleue marine en haut
+        - Logo PNG à gauche
+        - Texte titre + sous-titre
+        - Nom du médecin à droite
+        - Numéro de page en bas
+        """
+        from reportlab.lib.utils import ImageReader
+        canv.saveState()
+
+        # Bande bleue (pleine largeur, 2.2 cm de haut)
+        bar_h = 2.2 * cm
+        bar_y = H_PAGE - bar_h
+
+        # Dégradé simulé avec rectangles
+        steps = 60
+        for i in range(steps):
+            t  = i / steps
+            r0 = 13/255 + t*(26/255 - 13/255)
+            g0 = 43/255 + t*(78/255 - 43/255)
+            b0 = 85/255 + t*(181/255 - 85/255)
+            canv.setFillColorRGB(r0, g0, b0)
+            x_step = (W_PAGE / steps)
+            canv.rect(i*x_step, bar_y, x_step+1, bar_h, fill=1, stroke=0)
+
+        # Logo PNG (carré 1.8cm × 1.8cm, centré verticalement dans la bande)
+        logo_size = 1.75 * cm
+        logo_x    = 0.25 * cm
+        logo_y    = bar_y + (bar_h - logo_size) / 2
+        logo_buf.seek(0)
+        canv.drawImage(ImageReader(logo_buf),
+                       logo_x, logo_y, logo_size, logo_size,
+                       preserveAspectRatio=True, mask='auto')
+
+        # Texte titre
+        canv.setFillColorRGB(1, 1, 1)
+        canv.setFont("Helvetica-Bold", 11)
+        canv.drawString(2.3*cm, bar_y + bar_h*0.63,
+                        "PediaBMT  |  Decision Support")
+
+        canv.setFont("Helvetica", 6.5)
+        canv.setFillColorRGB(1, 1, 1, 0.85)
+        canv.drawString(2.3*cm, bar_y + bar_h*0.25,
+                        "Systeme d'aide a la decision — Greffes de moelle osseuse pediatriques")
+
+        # Médecin à droite
+        canv.setFillColorRGB(1, 1, 1)
+        canv.setFont("Helvetica-Bold", 9.5)
+        canv.drawRightString(W_PAGE - 0.8*cm,
+                             bar_y + bar_h*0.63,
+                             f"Dr. {r['medecin']}")
+        spec = r.get('specialite','')
+        if spec:
+            canv.setFont("Helvetica", 7)
+            canv.setFillColorRGB(1, 1, 1, 0.85)
+            canv.drawRightString(W_PAGE - 0.8*cm,
+                                 bar_y + bar_h*0.25, spec)
+
+        # Numéro de page (bas de page)
+        canv.setFillColorRGB(0.55, 0.55, 0.55)
+        canv.setFont("Helvetica", 8)
+        canv.drawCentredString(W_PAGE/2, 1.0*cm,
+                               f"PediaBMT · Centrale Casablanca · Page {doc.page}")
+
+        canv.restoreState()
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4,
-                            leftMargin=2*cm, rightMargin=2*cm,
-                            topMargin=1.2*cm, bottomMargin=2*cm)
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=3.2*cm,    # espace sous la bande
+        bottomMargin=1.8*cm,
+        onFirstPage=draw_page_header,
+        onLaterPages=draw_page_header,
+    )
     story = []
 
     NAVY  = colors.HexColor('#0d2b55'); BLUE  = colors.HexColor('#1a6eb5')
@@ -458,16 +520,7 @@ def generate_pdf(r):
                 textColor=colors.HexColor('#7d5a00'),leading=12)
     s_small = S('ts2',fontName='Helvetica',fontSize=8,textColor=DGRAY,leading=11)
 
-    # ══ 1. EN-TÊTE AVEC LOGO ══
-    fig_hdr = make_pdf_header(r['medecin'], r.get('specialite',''))
-    hdr_buf = io.BytesIO()
-    fig_hdr.savefig(hdr_buf, format='png', dpi=200, bbox_inches='tight',
-                    facecolor='#0d2b55')
-    hdr_buf.seek(0); plt.close(fig_hdr)
-    story.append(Image(hdr_buf, width=17*cm, height=2.5*cm))
-    story.append(Spacer(1, 12))
-
-    # Titre
+    # Titre du rapport (sans barre d'image)
     story.append(Paragraph("Rapport de Simulation Clinique", s_title))
     story.append(Paragraph(
         "Pediatric Bone Marrow Transplant Decision Support  ·  Centrale Casablanca", s_sub))
