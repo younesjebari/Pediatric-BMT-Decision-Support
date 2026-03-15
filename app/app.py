@@ -4,185 +4,114 @@ import pandas as pd
 import shap
 import matplotlib.pyplot as plt
 import re
-from io import BytesIO
 
-# 1. Configuration & Design Ultra-Premium
-st.set_page_config(
-    page_title="PediaBMT • Secure Portal", 
-    page_icon="🩸", 
-    layout="wide"
-)
+# 1. Configuration & Design
+st.set_page_config(page_title="PediaBMT • Expert Portal", page_icon="🩸", layout="wide")
 
-# Style CSS pour l'esthétique et l'arrière-plan médical dégradé
 st.markdown("""
     <style>
-    /* Arrière-plan dégradé doux */
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    
-    /* En-tête stylisé avec le logo */
+    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
     .main-header {
         background: linear-gradient(90deg, #004e92 0%, #000428 100%);
-        color: white;
-        padding: 25px;
-        border-radius: 15px;
-        text-align: center;
-        margin-bottom: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        color: white; padding: 25px; border-radius: 15px; text-align: center; margin-bottom: 25px;
     }
-    .main-header img {
-        height: 50px;
-        margin-right: 20px;
-    }
-
-    /* Boutons arrondis pro */
-    .stButton>button {
-        border-radius: 25px;
-        background: #004e92;
-        color: white;
-        font-weight: bold;
-        transition: 0.3s;
-        width: 100%;
-    }
-    
-    /* Conteneurs blancs (Cards) */
-    .stVerticalBlock > div > div {
-        background-color: rgba(255, 255, 255, 0.9);
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
+    .status-box { padding: 10px; border-radius: 10px; margin-top: 5px; font-size: 0.85rem; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Fonctions de Sécurité ( Strong Password Validation)
-def is_strong_password(password):
-    """Vérifie si le mot de passe respecte les critères de robustesse médicale."""
-    if len(password) < 8: return False # Minimum 8 caractères
-    if not re.search("[a-z]", password): return False # Une minuscule
-    if not re.search("[A-Z]", password): return False # Une majuscule
-    if not re.search("[0-9]", password): return False # Un chiffre
-    if not re.search("[!@#$%^&*(),.?\":{}|<>]", password): return False # Un caractère spécial
-    return True
+# 2. Logique de Validation & Base de Données
+if 'user_db' not in st.session_state:
+    st.session_state['user_db'] = {"aroua.elachhab@centrale-casablanca.ma": "AdminBMT2026!"}
+if 'pending_accounts' not in st.session_state:
+    st.session_state['pending_accounts'] = {}
 
-# 3. Système d'Authentification Sécurisé
-if 'auth' not in st.session_state:
-    st.session_state['auth'] = False
+def validate_email(email):
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
+
+def validate_password(p):
+    checks = {
+        "8+ carac": len(p) >= 8,
+        "Majuscule": any(c.isupper() for c in p),
+        "Chiffre": any(c.isdigit() for c in p),
+        "Spécial": bool(re.search(r"[!@#$%^&*]", p))
+    }
+    return checks
+
+# 3. Système d'Authentification
+if 'auth' not in st.session_state: st.session_state['auth'] = False
 
 if not st.session_state['auth']:
-    # En-tête de la page de login
-    st.markdown("""
-        <div class="main-header">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/e/e3/Caduceus.svg" alt="Logo Médical">
-            <h1>🔒 Connexion Sécurisée PediaBMT</h1>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with st.container():
-        st.subheader("Veuillez vous identifier")
-        email = st.text_input("Email professionnel (ex: dr.jebari@chu.ma)")
-        pwd = st.text_input("Mot de passe", type="password")
-        
-        col_btn1, col_btn2 = st.columns([1, 2])
-        if col_btn1.button("Accéder au Dashboard"):
-            # Identifiants de test (à changer pour la production)
-            if email == "admin@chu.ma" and is_strong_password(pwd):
+    st.markdown('<div class="main-header"><h1>💉 PediaBMT Secure Gateway</h1></div>', unsafe_allow_html=True)
+    tab_log, tab_reg = st.tabs(["🔑 Connexion", "📝 Créer un compte"])
+
+    with tab_log:
+        u_email = st.text_input("Email professionnel", key="log_mail")
+        u_pwd = st.text_input("Mot de passe", type="password", key="log_pwd")
+        if st.button("Accéder au Dashboard"):
+            if u_email in st.session_state['user_db'] and st.session_state['user_db'][u_email] == u_pwd:
                 st.session_state['auth'] = True
+                st.session_state['user'] = u_email
                 st.rerun()
-            elif email == "admin@chu.ma" and not is_strong_password(pwd):
-                st.warning("⚠️ Sécurité insuffisante. Le mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial.")
-            else:
-                st.error("Identifiants incorrects ou accès non autorisé.")
-    st.stop() # Arrête l'exécution tant que l'utilisateur n'est pas authentifié
+            else: st.error("Accès refusé. Identifiants incorrects ou compte non validé.")
 
-# 4. Chargement du Modèle Champion
-@st.cache_resource
-def load_assets():
-    model = joblib.load('models/final_model.joblib')
-    return model
-
-model = load_assets()
-
-# 5. Interface Principale du Dashboard
-st.markdown("""
-    <div class="main-header">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/e/e3/Caduceus.svg" alt="Logo Médical">
-        <h1>🩸 PediaBMT • Decision Support System</h1>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Bouton de déconnexion dans la barre latérale
-if st.sidebar.button("Déconnexion"):
-    st.session_state['auth'] = False
-    st.rerun()
-
-# Organisation en deux colonnes principales
-col_left, col_right = st.columns([1, 1.5], gap="large")
-
-with col_left:
-    st.subheader("📋 Saisie des Données Patient")
-    
-    with st.container():
-        st.write("### 🔢 Variables Numériques (Biomarqueurs)")
-        # Variables validées par tes tests de p-value (p < 0.05)
-        age_r = st.number_input("Âge du receveur (ans)", 0.0, 20.0, 8.0, help="Biomarqueur clé (p=0.0053)")
-        mass = st.number_input("Masse corporelle (kg)", 5.0, 100.0, 28.0)
-        cd34 = st.number_input("Dose CD34+ (×10⁶/kg)", 0.0, 50.0, 5.50, help="Biomarqueur clé (p=0.0074)")
-        cd3 = st.number_input("Dose CD3+ (×10⁸/kg)", 0.0, 20.0, 3.20)
-        plt_rec = st.number_input("Temps de récupération des plaquettes (jours)", 0, 60, 25)
-        age_d = st.number_input("Âge du donneur", 0, 60, 25)
-
-    with st.container():
-        st.write("### 🧬 Variables Catégorielles")
-        disease = st.selectbox("Type de maladie", [0, 1, 2, 3], format_func=lambda x: ["ALL", "AML", "Non-Malignant", "Other"][x])
-        relapse = st.radio("Antécédent de rechute", [0, 1], format_func=lambda x: "Non" if x==0 else "Oui", horizontal=True)
-        hla = st.slider("Compatibilité HLA (0=Total, 3=Mismatch)", 0, 3, 0)
-        risk = st.radio("Groupe de Risque", [0, 1], format_func=lambda x: "Bas (0)" if x==0 else "Haut (1)", horizontal=True)
-
-with col_right:
-    st.subheader("🔬 Diagnostic & IA Explicable")
-    
-    # Préparation des 11 variables exactes attendues par ton modèle entraîné
-    input_df = pd.DataFrame([[
-        age_r, mass, cd34, cd3, disease, relapse, plt_rec, 0, age_d, hla, risk
-    ]], columns=['Recipientage', 'Rbodymass', 'CD34kgx10d6', 'CD3dkgx10d8', 'Disease', 
-                'Relapse', 'PLTrecovery', 'extcGvHD', 'Donorage', 'HLAmatch', 'Riskgroup'])
-
-    if st.button("🚀 ANALYSER LE PATIENT", use_container_width=True):
-        st.info("🔄 Analyse en cours...")
+    with tab_reg:
+        reg_email = st.text_input("Email souhaité")
+        if reg_email and not validate_email(reg_email):
+            st.error("❌ Format d'email invalide (ex: nom@domaine.com)")
         
-        # Prédiction (Classe 1 = Décès)
-        prob_deces = model.predict_proba(input_df)[0][1]
-        prob_survie = (1 - prob_deces) * 100
+        reg_pwd = st.text_input("Mot de passe (Strong)", type="password")
+        if reg_pwd:
+            checks = validate_password(reg_pwd)
+            for label, status in checks.items():
+                color = "green" if status else "red"
+                st.markdown(f"<span style='color:{color}'>{'✅' if status else '❌'} {label}</span>", unsafe_allow_html=True)
         
-        # Affichage Élégant du Pronostic
-        if prob_deces > 0.5:
-            st.error(f"### ⚠️ ALERTE : RISQUE ÉLEVÉ ({prob_deces*100:.1f}%)")
-            st.metric("Probabilité de Survie", f"{prob_survie:.1f}%", delta="CRITIQUE", delta_color="inverse")
-        else:
-            st.success(f"### ✅ PRONOSTIC FAVORABLE")
-            st.metric("Probabilité de Survie", f"{prob_survie:.1f}%", delta="STABLE")
+        if st.button("Envoyer la demande à l'admin"):
+            if validate_email(reg_email) and all(validate_password(reg_pwd).values()):
+                st.session_state['pending_accounts'][reg_email] = reg_pwd
+                st.success("Demande envoyée. L'administrateur (Aroua Elachhab) doit valider votre accès.")
+            else: st.warning("Veuillez corriger les erreurs avant d'envoyer.")
+    st.stop()
 
-        # Section SHAP pour l'explicabilité médicale
-        st.write("---")
-        st.write("### 🧬 Pourquoi cette décision ? (Explication SHAP)")
+# 4. Interface Admin & Dashboard
+st.markdown(f'<div class="main-header"><h1>🔬 Dashboard d\'Aide à la Décision</h1></div>', unsafe_allow_html=True)
+
+# Section Admin visible uniquement par le mail principal
+if st.session_state['user'] == "aroua.elachhab@centrale-casablanca.ma":
+    with st.expander("🛠️ Panneau d'Administration (Gestion des comptes)"):
+        if st.session_state['pending_accounts']:
+            for acc, p in list(st.session_state['pending_accounts'].items()):
+                col_a, col_b = st.columns([3, 1])
+                col_a.write(f"Demande de : **{acc}**")
+                if col_b.button(f"Valider {acc}"):
+                    st.session_state['user_db'][acc] = p
+                    del st.session_state['pending_accounts'][acc]
+                    st.rerun()
+        else: st.write("Aucune demande en attente.")
+
+# 5. Diagnostic & SHAP
+model = joblib.load('models/final_model.joblib')
+col_in, col_out = st.columns([1, 1.5], gap="large")
+
+with col_in:
+    st.subheader("📋 Saisie Patient")
+    age_r = st.number_input("Âge Receveur", 0.0, 20.0, 8.0)
+    cd34 = st.number_input("Dose CD34+", 0.0, 50.0, 5.5)
+    disease = st.selectbox("Maladie", [0,1,2,3], format_func=lambda x: ["ALL", "AML", "Non-Mal", "Autre"][x])
+    relapse = st.radio("Rechute", [0, 1], format_func=lambda x: "Non" if x==0 else "Oui")
+
+with col_out:
+    st.subheader("📊 Analyse IA Explicable")
+    input_df = pd.DataFrame([[age_r, 30.0, cd34, 3.2, disease, relapse, 25, 0, 25, 0, 0]], 
+                            columns=['Recipientage', 'Rbodymass', 'CD34kgx10d6', 'CD3dkgx10d8', 'Disease', 
+                                    'Relapse', 'PLTrecovery', 'extcGvHD', 'Donorage', 'HLAmatch', 'Riskgroup'])
+
+    if st.button("🚀 ANALYSER"):
+        prob = model.predict_proba(input_df)[0][1]
+        st.metric("Probabilité de Survie", f"{(1-prob)*100:.1f}%")
+        
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(input_df)
-        
-        # Génération du graphique force_plot
         fig, ax = plt.subplots()
         shap.force_plot(explainer.expected_value, shap_values[0], input_df.iloc[0], matplotlib=True, show=False)
         st.pyplot(plt.gcf())
-        st.caption("Ce graphique montre l'influence de chaque variable sur le score final (bleu=pousse vers succès, rouge=pousse vers risque).")
-
-        # Fonctionnalité de Rapport de base (Rappel : .txt)
-        report_text = f"PediaBMT Report\nAge Receveur: {age_r}\nDose CD34+: {cd34}\nProbabilité Survie: {prob_survie:.1f}%"
-        st.download_button("📥 Télécharger le Rapport Textuel", report_text, file_name=f"rapport_bmt_{age_r}ans.txt")
-    
-    else:
-        st.warning("Veuillez remplir les données à gauche et cliquer sur 'Analyser'.")
-        # Rappel des performances pour rassurer le clinicien
-        st.info(f"**Information Système :** Ce modèle Random Forest est validé avec un score ROC-AUC de 95.86%.")
