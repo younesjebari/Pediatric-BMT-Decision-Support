@@ -27,15 +27,14 @@ def evaluate():
     for col in df.select_dtypes([object]): 
         df[col] = df[col].str.decode('utf-8')
 
-    # 3. Prétraitement
-    features = [f for f in IMPORTANT_FEATURES if f in df.columns]
-    for col in df.select_dtypes(include=['object']).columns:
-        df[col] = df[col].astype('category').cat.codes
-    for col in df.select_dtypes(include=['number']).columns:
-        df[col] = df[col].fillna(df[col].median())
+    # 3. Prétraitement (même pipeline que pour le training)
+    df = select_features_from_eda(df, target='survival_status')
+    df = handle_missing_values(df)
+    df = handle_outliers(df)
 
-    X = df[features]
+    X = df.drop(columns=['survival_status'])
     y = pd.to_numeric(df['survival_status'], errors='coerce').fillna(0).astype(int)
+
 
     # 4. Prédictions
     y_pred = model.predict(X)
