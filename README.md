@@ -60,17 +60,17 @@ Le fichier `app/app.py` contient l'application Web interactive développée avec
 
 L'application est structurée autour de fonctionnalités avancées, développées spécifiquement pour ce projet :
 
-* Authentification Sécurisée :Système de connexion et d'inscription  avec stockage sécurisé des utilisateurs via `users.json` et gestion des sessions (`st.session_state`).
-* Design & Animations SVG Sur Mesure : Intégration de logos vectoriels SVG animés en CSS directement générés en Python, offrant un branding professionnel sans alourdir l'application.
-* Gestionnaire de Rendez-vous Intégré : Développement d'un widget calendrier interactif permettant au médecin de planifier, visualiser et supprimer ses consultations directement depuis son tableau de bord.
-* Moteur d'Explicabilité SHAP : Après la saisie des données patient, l'application ne donne pas qu'un score probabiliste. Elle génère dynamiquement des graphiques d'importance des variables barres horizontales à l'aide de Matplotlib et SHAP, justifiant ainsi la décision de l'algorithme.
-* Générateur de Rapports Médico-Légaux ReportLab:Implémentation complète d'un moteur d'export PDF métier. En un clic, le médecin télécharge un rapport clinique traçable contenant les métadonnées de la session, le profil patient, le diagnostic IA, les graphiques SHAP et les avertissements légaux, prêt à être joint au dossier médical.
+**Authentification Sécurisée** : Système de connexion et d'inscription  avec stockage sécurisé des utilisateurs via `users.json` et gestion des sessions (`st.session_state`).
+**Design & Animations SVG Sur Mesure** : Intégration de logos vectoriels SVG animés en CSS directement générés en Python, offrant un branding professionnel sans alourdir l'application.
+**Gestionnaire de Rendez-vous Intégré** : Développement d'un widget calendrier interactif permettant au médecin de planifier, visualiser et supprimer ses consultations directement depuis son tableau de bord.
+**Moteur d'Explicabilité SHAP** : Après la saisie des données patient, l'application ne donne pas qu'un score probabiliste. Elle génère dynamiquement des graphiques d'importance des variables barres horizontales à l'aide de Matplotlib et SHAP, justifiant ainsi la décision de l'algorithme.
+**Générateur de Rapports Médico-Légaux ReportLab** : Implémentation complète d'un moteur d'export PDF métier. En un clic, le médecin télécharge un rapport clinique traçable contenant les métadonnées de la session, le profil patient, le diagnostic IA, les graphiques SHAP et les avertissements légaux, prêt à être joint au dossier médical.
 
 
 
 
 
-##Guide d'utilisation de l'interface : 
+## Guide d'utilisation de l'interface : 
 
 L'interface a été pensée pour s'intégrer naturellement dans le flux de travail d'un professionnel de santé. Voici les étapes pour réaliser une simulation clinique :
 
