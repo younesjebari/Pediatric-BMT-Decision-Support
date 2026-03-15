@@ -1,6 +1,39 @@
 import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer
+from scipy.io import arff
+from scipy.stats import mannwhitneyu
+
+# Chargement automatique des données pour sélection des features
+raw_data, _ = arff.loadarff('../data/bone-marrow.arff')
+df_auto = pd.DataFrame(raw_data)
+for col in df_auto.select_dtypes([object]): 
+    df_auto[col] = df_auto[col].str.decode('utf-8')
+
+# Encodage des catégorielles pour les tests
+for col in df_auto.select_dtypes(include=['object']).columns:
+    df_auto[col] = df_auto[col].astype('category').cat.codes
+
+# Imputation des valeurs manquantes
+for col in df_auto.select_dtypes(include=['number']).columns:
+    df_auto[col] = df_auto[col].fillna(df_auto[col].median())
+
+# Cible
+y_auto = pd.to_numeric(df_auto['survival_status'], errors='coerce').fillna(0).astype(int)
+
+# Sélection automatique des features (Mann-Whitney U, p < 0.05)
+IMPORTANT_FEATURES = []
+for col in df_auto.columns:
+    if col == 'survival_status':
+        continue  # On saute la cible
+    group0 = df_auto[y_auto == 0][col]
+    group1 = df_auto[y_auto == 1][col]
+    if len(group0) > 0 and len(group1) > 0:
+        stat, p = mannwhitneyu(group0, group1, alternative='two-sided')
+        if p < 0.05:  # Seuil de significativité
+            IMPORTANT_FEATURES.append(col)
+
+print(f"🔍 Sélection automatique de {len(IMPORTANT_FEATURES)} features importantes : {IMPORTANT_FEATURES}")
 
 def select_features_from_eda(df, target='survival_status',
                              weak_threshold=0.05,
