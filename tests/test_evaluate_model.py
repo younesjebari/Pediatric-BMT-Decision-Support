@@ -7,7 +7,7 @@ import joblib
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from data_processing import IMPORTANT_FEATURES
+from src.data_processing import IMPORTANT_FEATURES
 
 
 @pytest.fixture
