@@ -1,86 +1,101 @@
-# Pediatric-BMT-Decision-Support
-A machine learning application designed to assist physicians in predicting the success rate of pediatric bone marrow transplants using explainable AI (SHAP).
-## Optimisation Mémoire
+## Contexte et Objectif du Projet
 
-La fonction `optimize_memory(df)` dans `src/data_processing.py`
-réduit l'usage RAM en convertissant les types de données :
+La greffe de moelle osseuse est une procédure médicale complexe. Avant l'opération, les médecins doivent prendre des décisions cruciales et ajuster des paramètres pré-opératoires précis comme les dosages de cellules CD34+ et CD3+ pour maximiser les chances de prise de la greffe tout en minimisant les risques d'échec ou de rechute. Le corps humain étant imprévisible, anticiper l'issue de cette procédure représente un défi clinique majeur.
 
-| Type original | Type optimisé | Réduction |
-|---------------|---------------|-----------|
-| float64       | float32       | ~50%      |
-| int64         | int32         | ~50%      |
+**L'objectif de ce projet est de concevoir un Système d'Aide à la Décision basé sur l'Intelligence Artificielle pour accompagner les hématologues.** En s'appuyant sur des algorithmes de Machine Learning entraînés sur des données historiques de patients, la plateforme permet de :
+**Évaluer instantanément** la probabilité de survie post-greffe à partir de 6 variables cliniques clés.
+**Expliquer la prédiction** grâce à l'intelligence artificielle explicable (SHAP), garantissant une totale transparence médicale.
+**Simuler des traitements** via une interface interactive où le médecin peut virtuellement ajuster les doses de cellules souches pour optimiser le pronostic du patient avant l'intervention réelle.
 
-### Résultats mesurés sur le dataset BMT :
+## Architecture et Organisation du Code
 
-| | Mémoire |
-|-|---------|
-| Avant optimisation | 0.12 MB |
-| Après optimisation | 0.06 MB |
-| **Réduction totale** | **~50%** |
+Ce projet a été structuré en suivant les standards de développement logiciel. L'objectif est de séparer clairement l'interface utilisateur , la logique d'Intelligence Artificielle et l'intégration continue.
 
-> Preuve reproductible : lancer `notebooks/eda.ipynb` section 6.
-#  support à la décision pour la greffe pédiatrique (BMT)
+```text
+Pediatric-BMT-Decision-Support/
+├── .github/workflows/   # CI/CD : Automatisation des tests à chaque "push" (GitHub Actions)
+├── app/                 # Front-end : Application web médicale interactive
+│   └── app.py           # Interface principale codée avec Streamlit
+├── data/                # Base de données clinique anonymisée (.arff)
+├── models/              # Modèles IA entraînés, sauvegardés et prêts à l'emploi (.joblib)
+├── notebooks/           # Phase de recherche : Analyse exploratoire des données (EDA)
+├── src/                 # Back-end ML : Cœur de l'algorithme
+│   ├── data_processing.py # Nettoyage et préparation des données médicales
+│   ├── evaluate_model.py  # Calcul des performances et métriques
+│   └── train_model.py     # Pipeline d'entraînement des modèles (XGBoost, SVM...)
+├── tests/               # Scripts de validation continue (exécutés via Pytest)
+├── Dockerfile           # Fichier de configuration pour la conteneurisation
+└── requirements.txt     # Liste stricte des dépendances Python
 
-Ce projet implémente une solution de Machine Learning pour prédire la survie des patients pédiatriques après une greffe de moelle osseuse.
+##  Analyse Exploratoire des Données
 
-##  Performance du Modèle Final (Random Forest)
-Le modèle sélectionné offre les performances suivantes sur les cas critiques :
-- **Rappel (Recall) : 81.0%** (Capacité à détecter les patients à haut risque)
-- **Précision : 70.8%**
-- **Score ROC-AUC : 71.0%**
+Le fichier `notebooks/eda.ipynb` constitue la fondation scientifique de notre démarche. Avant d'entraîner le moindre algorithme, une analyse rigoureuse du jeu de données brut  a été menée pour comprendre les dynamiques cliniques et garantir la fiabilité du modèle.
 
-##  Analyse et Explicabilité Médicale 
+Les étapes clés de cette analyse comprennent :
 
-En tant que responsable de l'explicabilité, j'ai intégré la librairie SHAP pour garantir que chaque prédiction du modèle puisse être interprétée et validée par un clinicien.
+**Nettoyage et Prétraitement :** Décodage des chaînes de caractères brutes, traitement des valeurs manquantes: imputation par la médiane pour les variables continues et encodage des variables catégorielles.
+**Prévention du Data Leakage :** C'est une étape critique du projet. Nous avons identifié et supprimé les variables "post-opératoires" comme le temps de récupération des plaquettes `PLTrecovery` ou la GvHD qui gonflaient artificiellement les scores de prédiction, car ces informations sont inconnues du médecin avant la greffe.
+**Sélection des Caractéristiques (Feature Selection) :** Réduction de la dimensionnalité de 37 variables brutes à 6 indicateurs pré-opératoires clés (Âge, Masse corporelle, Maladie d'origine, Antécédent de rechute, Dosages CD34+ et CD3+) par des tests statistiques des lois de Chi 2 qui conserve les variables qualitatives qui influencent sur le succes et MANN-WHITNEY qui traite les variables quantitatives : continues afin d'en extraire celles qui ont un poids dans le taux de succes.
+**Étude des Corrélations :** Visualisation des relations entre les biomarqueurs et la cible :statut de survie via des matrices de corrélation et des distributions statistiques.
 
-### 1. Interprétation Globale (Summary Plot)
-L'analyse SHAP sur l'ensemble du dataset a permis d'identifier les biomarqueurs et facteurs cliniques les plus influents pour la survie post-greffe :
--**Dose de CD34+ (×10⁶/kg) :** Le facteur le plus déterminant. Une dose élevée est systématiquement associée à une augmentation des chances de succès de la prise de greffe.
--**Âge du Donneur :** On observe qu'un donneur plus jeune tend à améliorer les scores de survie à long terme.
--**Compatibilité HLA :** Les disparités (mismatch) impactent négativement la prédiction, alertant le médecin sur des risques potentiels de complications.
+##  Entraînement et Comparaison des Modèles
 
-### 2. Transparence Clinique
-Chaque prédiction générée par l'interface Streamlit est accompagnée d'une visualisation explicative. Cela permet au médecin :
--De comprendre quels facteurs spécifiques ont poussé le modèle vers une prédiction de "Succès" ou d'"Échec".
--De comparer la logique de l'IA avec son expertise médicale pour une décision finale plus sûre.
+Le script `src/train_model.py` constitue le cœur de notre Intelligence Artificielle. Il automatise le flux de travail de Machine Learning, de la préparation des données jusqu'à l'exportation du modèle optimal pour le déploiement.
 
-> **Livrable :** Le graphique d'explication globale est disponible dans l'interface finale et a été utilisé pour justifier la sélection du modèle Random Forest, dont les décisions restaient les plus cohérentes avec la littérature médicale actuelle.
+Notre pipeline de modélisation intègre les étapes critiques suivantes :
 
-##  Structure Technologique
-- **Traitement :** Nettoyage automatisé des données (imputation par médiane/mode).
-- **Équilibrage :** Technique SMOTE pour renforcer l'apprentissage sur les cas de décès.
-- **Modélisation :**Pipeline robuste utilisant `RandomForestClassifier`.
+**Standardisation des Données :`StandardScaler`:** Mise à l'échelle des variables continues comme le poids ou les dosages cellulaires. Cette étape est indispensable pour garantir les performances des algorithmes basés sur les distances géométriques comme le SVM.
+**Équilibrage des Classes `SMOTE`: :** Les jeux de données médicaux sont souvent déséquilibrés (sur-représentation des succès de greffe par rapport aux échecs). Nous utilisons la technique de sur-échantillonnage synthétique SMOTE sur les données d'entraînement pour éviter que l'IA ne développe un biais d'optimisme.
+**Banc d'Essai Multi-Algorithmes :** Le script met en compétition 4 algorithmes de pointe reconnus pour leurs performances sur les données tabulaires de santé :
+    * Random Forest
+    * XGBoost
+    * LightGBM
+    * SVM
+**Sérialisation et Déploiement :MLOps:** Le modèle obtenant la meilleure précision Accuracy / ROC-AUC sur le jeu de test est automatiquement élu. Le script exporte alors trois artefacts cruciaux dans le dossier `models/` : le modèle vainqueur `final_model.joblib`, le traducteur d'échelle `scaler.joblib` et le schéma des variables `features_list.joblib`, garantissant une intégration sans faille avec l'application Web.
 
-## Utilisation de l'IA (Prompt Engineering)
+## Interface Utilisateur & Dashboard Clinique 
 
-<<<<<<< Updated upstream
-Dans le cadre de ce projet d'analyse de données médicales, notre premier objectif technique était de mettre en place un flux de travail collaboratif solide et de maîtriser les commandes Git/GitHub (Push, Pull, gestion des branches).
+Le fichier `app/app.py` contient l'application Web interactive développée avec le framework **Streamlit**. L'interface a été conçue sur mesure via du CSS injecté pour offrir une ergonomie digne d'un véritable logiciel hospitalier, évitant la surcharge cognitive des praticiens.
 
-Afin de disposer rapidement d'une base de code pertinente à nous partager et à fusionner, nous avons utilisé l'assistant IA **Gemini**. L'objectif n'était pas de faire écrire le projet par l'IA, mais de générer des squelettes de code pour nos différents modèles de Machine Learning (destinés à la prédiction de l'évolution des patients), nous permettant ainsi de nous concentrer sur la pratique de GitHub.
+L'application est structurée autour de fonctionnalités avancées, développées spécifiquement pour ce projet :
 
-### Exemples de requêtes (Prompts) utilisées :
-* Génère un script Python clair utilisant scikit-learn pour entraîner un modèle de Random Forest. Le code doit inclure la séparation des données (train/test split) et être prêt à être poussé sur un repository.
-* Écris le code d'une régression logistique de base pour de la classification, avec l'affichage des métriques d'évaluation standard (accuracy, matrice de confusion).
-* Crée une structure de base pour une application Streamlit simple permettant d'afficher un DataFrame Pandas.
+* Authentification Sécurisée :Système de connexion et d'inscription  avec stockage sécurisé des utilisateurs via `users.json` et gestion des sessions (`st.session_state`).
+* Design & Animations SVG Sur Mesure : Intégration de logos vectoriels SVG animés en CSS directement générés en Python, offrant un branding professionnel sans alourdir l'application.
+* Gestionnaire de Rendez-vous Intégré : Développement d'un widget calendrier interactif permettant au médecin de planifier, visualiser et supprimer ses consultations directement depuis son tableau de bord.
+* Moteur d'Explicabilité SHAP : Après la saisie des données patient, l'application ne donne pas qu'un score probabiliste. Elle génère dynamiquement des graphiques d'importance des variables barres horizontales à l'aide de Matplotlib et SHAP, justifiant ainsi la décision de l'algorithme.
+* Générateur de Rapports Médico-Légaux ReportLab:Implémentation complète d'un moteur d'export PDF métier. En un clic, le médecin télécharge un rapport clinique traçable contenant les métadonnées de la session, le profil patient, le diagnostic IA, les graphiques SHAP et les avertissements légaux, prêt à être joint au dossier médical.
 
-### Méthodologie appliquée :
-1. **Génération :** Création des algorithmes de base via Gemini.
-2. **Répartition :** Chaque membre de l'équipe a pris en charge un modèle spécifique.
-3. **Collaboration :** Utilisation de notre repository GitHub pour créer des branches, faire nos *commits*, et fusionner le tout via des *Pull Requests*.
-4. **Adaptation :** Le code généré a ensuite été relu, débuggé humainement et adapté aux spécificités de notre jeu de données.
-=======
-Pour ré-entraîner le modèle avec de nouvelles données :
-```powershell
-.\.venv\Scripts\python.exe src/train_model.py
->>>>>>> Stashed changes
-## Résultats Tests Statistiques
 
-Variables numériques significatives :
-- Rbodymass (p=0.0033)
-- CD3dkgx10d8 (p=0.0016)
-- CD34kgx10d6 (p=0.0070)
 
-Variables catégorielles significatives :
-- Disease (p=0.0185)
-- Relapse (p=0.0001)
-- extcGvHD (p=0.0000)
+
+
+##Guide d'utilisation de l'interface : 
+
+L'interface a été pensée pour s'intégrer naturellement dans le flux de travail d'un professionnel de santé. Voici les étapes pour réaliser une simulation clinique :
+
+Étape 1 : Authentification Sécurisée
+*Au lancement de l'application, l'écran de verrouillage PediaBMT apparaît.
+*Si vous êtes un nouvel utilisateur :Allez dans l'onglet *Créer un compte*, remplissez vos informations :Nom, Prénom, Spécialité et définissez un mot de passe (min. 6 caractères).
+Connexion :Entrez votre identifiant et votre mot de passe dans l'onglet  *Connexion* pour accéder à votre espace sécurisé.
+
+Étape 2 : Le Tableau de Bord 
+Une fois connecté, vous arrivez sur votre tableau de bord personnel.
+*À droite :Gestion de cabinet : Vous disposez d'un calendrier interactif. Vous pouvez y consulter vos prochains rendez-vous, en ajouter de nouveaux  * Ajouter* ou supprimer des consultations passées.
+*À gauche :Moteur de prédiction :C'est ici que se trouve le formulaire de saisie clinique.
+
+Étape 3 : Saisie du Profil Patient
+Dans le panneau de gauche, renseignez les données pré-opératoires du patient :
+*Variables numériques :Ajustez l'âge, la masse corporelle, ainsi que les doses prévues de cellules souches CD34+ et de lymphocytes T CD3+.
+*Variables catégorielles : Sélectionnez le type de maladie :AML, ALL, etc., l'antécédent de rechute, et les niveaux de compatibilité via les menus déroulants.
+*Cliquez ensuite sur le bouton bleu **Analyser la prédiction**.
+
+Étape 4 : Interprétation du Diagnostic IA
+L'application bascule sur la page de résultats générée par le modèle d'Intelligence Artificielle.
+*La prédiction :Un encadré visuel :Vert pour favorable, Rouge pour risque élevé,affiche le score de probabilité de survie à 1 an.
+*L'Explicabilité SHAP : Un graphique détaillé vous explique le score. Les barres bleues représentent les paramètres qui ont favorisé la survie, tandis que les barres rouges soulignent les facteurs de risque spécifiques à ce patient.
+
+Étape 5 : Traçabilité et Export PDF
+Si le protocole simulé vous convient :
+Cliquez sur le bouton **Télécharger le PDF** situé en haut à droite.
+L'application génère instantanément un rapport médico-légal complet avec en-tête de l'hôpital, horodatage, profil patient, protocole retenu, et graphiques explicatifs.
+Pour tester un nouveau dosage sur le même patient, cliquez sur **← Retour à l'analyse** et ajustez les variables.
