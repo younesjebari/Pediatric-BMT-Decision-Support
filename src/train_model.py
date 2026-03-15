@@ -9,48 +9,50 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_auc_score, recall_score
 import joblib
 import os
+import sys
 
-# Importation de tes outils de traitement
-from data_processing import select_important_features, handle_missing_values, handle_outliers, optimize_memory
+# 1. Configuration du chemin pour importer 'src' correctement
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Importation de tes outils mis à jour
+from src.data_processing import preprocess_data, handle_outliers, IMPORTANT_FEATURES
 
 def train():
     print("\n" + "="*70)
     print("🚀 DÉMARRAGE DU BENCHMARK : 4 MODÈLES PRÉDICTIFS (BMT)")
     print("="*70)
 
-    # 1. Chargement et Décodage
+    # 2. Chargement et Décodage
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DATA_PATH = os.path.join(BASE_DIR, '..', 'data', 'bone-marrow.arff')
+
     try:
-        raw_data, _ = arff.loadarff('data/bone-marrow.arff')
+        raw_data, _ = arff.loadarff(DATA_PATH)
         df = pd.DataFrame(raw_data)
         for col in df.select_dtypes([object]):
             df[col] = df[col].str.decode('utf-8')
     except FileNotFoundError:
-        print("❌ Erreur : Le fichier 'data/bone-marrow.arff' est introuvable.")
+        print(f"❌ Erreur : Le fichier '{DATA_PATH}' est introuvable.")
         return
 
-    # 2. Pipeline de Traitement (Utilisation des fonctions de data_processing.py)
-    # On utilise ta logique centralisée pour garantir la propreté des données
-    df = select_important_features(df)
-    df = handle_missing_values(df)
-    df = handle_outliers(df)
+    # 3. Pipeline de Traitement unifié
+    # preprocess_data gère déjà l'exclusion de 'survival_time' (leakage)
+    df_cleaned = preprocess_data(df)
+    df_cleaned = handle_outliers(df_cleaned)
     
-    # Encodage spécifique pour les modèles (catégories -> codes numériques)
-    for col in df.select_dtypes(include=['object']).columns:
-        df[col] = df[col].astype('category').cat.codes
+    # 4. Séparation X et y en utilisant la liste stricte des features
+    # Cela garantit la compatibilité avec l'app Flask et les tests
+    X = df_cleaned[IMPORTANT_FEATURES]
+    y = pd.to_numeric(df['survival_status'], errors='coerce').fillna(0).astype(int)
 
-    # 3. Séparation X et y
-    X = df.drop(columns=['survival_status'])
-    y = pd.to_numeric(df['survival_status']).astype(int)
-
-    # 4. Split et Équilibrage (SMOTE)
-    # On stratifie pour garder la même proportion de survie dans les deux sets
+    # 5. Split et Équilibrage (SMOTE)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-    # SMOTE aide à compenser le manque de données sur les cas de décès
+    # SMOTE aide à compenser le déséquilibre des classes (décès vs succès)
     smote = SMOTE(random_state=42, k_neighbors=1)
     X_res, y_res = smote.fit_resample(X_train, y_train)
 
-    # 5. Définition des 4 modèles obligatoires
+    # 6. Définition des modèles
     models = {
         "RandomForest": RandomForestClassifier(random_state=42),
         "XGBoost": XGBClassifier(random_state=42, eval_metric='logloss'),
@@ -76,18 +78,19 @@ def train():
         
         print(f"{name:<15} | {acc:>8.1f}% | {roc:>8.1f}% | {rec:>13.1f}%")
         
-        # Sélection basée sur le Rappel pour la sécurité médicale
+        # Priorité au Rappel (Recall) pour la sécurité médicale (détection des décès)
         if rec > best_recall:
             best_recall = rec
             best_model = m
 
-    # 6. Sauvegarde du champion
-    os.makedirs('models', exist_ok=True)
-    joblib.dump(best_model, 'models/final_model.joblib')
+    # 7. Sauvegarde du champion
+    SAVE_PATH = os.path.join(BASE_DIR, '..', 'models', 'final_model.joblib')
+    os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
+    joblib.dump(best_model, SAVE_PATH)
     
     print("="*70)
     print(f"🏆 GAGNANT : {best_model.__class__.__name__}")
-    print(f"Ce modèle est sauvegardé pour l'application.")
+    print(f"Sauvegardé sous : {SAVE_PATH}")
     print("="*70 + "\n")
 
 if __name__ == "__main__":
