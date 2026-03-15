@@ -810,7 +810,7 @@ def show_auth_page():
         tab1,tab2=st.tabs(["🔑 Connexion","📝 Créer un compte"])
         with tab1:
             st.markdown("<br>",unsafe_allow_html=True)
-            username=st.text_input("Identifiant",placeholder="Ex: dr.zerhouni",key="login_user")
+            username=st.text_input("Identifiant",key="login_user")
             password=st.text_input("Mot de passe",type="password",placeholder="••••••••",key="login_pass")
             st.markdown("<br>",unsafe_allow_html=True)
             if st.button("Se connecter →",key="btn_login"):
@@ -829,10 +829,10 @@ def show_auth_page():
         with tab2:
             st.markdown("<br>",unsafe_allow_html=True)
             cp,cn=st.columns(2)
-            with cp: prenom_new=st.text_input("Prénom",placeholder="Mohamed",key="reg_prenom")
-            with cn: nom_new=st.text_input("Nom",placeholder="Zerhouni",key="reg_nom")
+            with cp: prenom_new=st.text_input("Prénom",placeholder="",key="reg_prenom")
+            with cn: nom_new=st.text_input("Nom",placeholder="",key="reg_nom")
             spec_new=st.selectbox("Spécialité",["Hématologie pédiatrique","Oncologie pédiatrique","Médecine interne","Transplantation","Autre"],key="reg_spec")
-            user_new=st.text_input("Identifiant",placeholder="Ex: dr.zerhouni",key="reg_user")
+            user_new=st.text_input("Identifiant",placeholder="",key="reg_user")
             pass_new=st.text_input("Mot de passe",type="password",placeholder="Min. 6 caractères",key="reg_pass")
             conf_new=st.text_input("Confirmer",type="password",placeholder="••••••••",key="reg_conf")
             st.markdown("<br>",unsafe_allow_html=True)
