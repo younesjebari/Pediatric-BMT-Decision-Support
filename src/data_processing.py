@@ -1,23 +1,39 @@
 import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer
+from scipy.io import arff
+from scipy.stats import mannwhitneyu
 
-# Variables basées sur tes tests statistiques (p-value < 0.05)
-# Note : On a exclu 'survival_time' (leakage) et on garde 'Rbodymass' 
-# ici car elle est statistiquement significative, même si corrélée à l'âge.
-IMPORTANT_FEATURES = [
-    'CD3dkgx10d8',    # Dose CD3+ (p=0.0016)
-    'CD34kgx10d6',    # Dose CD34+ (p=0.0070)
-    'Rbodymass',      # Masse corporelle (p=0.0033)
-    'Recipientage',   # Age receveur (p=0.0050)
-    'PLTrecovery',    # Récupération plaquettes (p=0.0071)
-    'Disease',        # Type maladie (p=0.0185)
-    'Relapse',        # Rechute (p=0.0001)
-    'extcGvHD',       # GvHD chronique (p=0.0000)
-    'Donorage',       # Age donneur
-    'HLAmatch',       # Compatibilité HLA
-    'Riskgroup'       # Groupe de risque
-]
+# Chargement automatique des données pour sélection des features
+raw_data, _ = arff.loadarff('../data/bone-marrow.arff')
+df_auto = pd.DataFrame(raw_data)
+for col in df_auto.select_dtypes([object]): 
+    df_auto[col] = df_auto[col].str.decode('utf-8')
+
+# Encodage des catégorielles pour les tests
+for col in df_auto.select_dtypes(include=['object']).columns:
+    df_auto[col] = df_auto[col].astype('category').cat.codes
+
+# Imputation des valeurs manquantes
+for col in df_auto.select_dtypes(include=['number']).columns:
+    df_auto[col] = df_auto[col].fillna(df_auto[col].median())
+
+# Cible
+y_auto = pd.to_numeric(df_auto['survival_status'], errors='coerce').fillna(0).astype(int)
+
+# Sélection automatique des features (Mann-Whitney U, p < 0.05)
+IMPORTANT_FEATURES = []
+for col in df_auto.columns:
+    if col == 'survival_status':
+        continue
+    group0 = df_auto[y_auto == 0][col]
+    group1 = df_auto[y_auto == 1][col]
+    if len(group0) > 0 and len(group1) > 0:
+        stat, p = mannwhitneyu(group0, group1)
+        if p < 0.05:
+            IMPORTANT_FEATURES.append(col)
+
+print(f"🔍 Sélection automatique de {len(IMPORTANT_FEATURES)} features importantes : {IMPORTANT_FEATURES}")
 
 def select_important_features(df):
     """Garde seulement les variables validées par l'EDA et la cible."""
