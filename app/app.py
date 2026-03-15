@@ -198,25 +198,67 @@ label,[data-testid="stWidgetLabel"] p{color:#1a1a1a!important;font-weight:600!im
 # ─────────────────────────────────────────────
 #  CONSTANTES ML
 # ─────────────────────────────────────────────
-FEATURES=['Recipientage','Rbodymass','CD34kgx10d6','CD3dkgx10d8','Disease','Relapse','Gendermatch','HLAmatch']
-# Labels ASCII pour matplotlib (PDF) — pas d'accents
-FEATURE_LABELS_PDF={
-    'Recipientage':'Age du receveur (ans)','Rbodymass':'Masse corporelle (kg)',
-    'CD34kgx10d6':'Dose CD34+','CD3dkgx10d8':'Dose CD3+',
-    'Disease':'Type de maladie','Relapse':'Antecedent de rechute',
-    'Gendermatch':'Compatibilite de genre','HLAmatch':'Compatibilite HLA'
+# ── Ordre EXACT de IMPORTANT_FEATURES dans data_processing.py / train_model.py ──
+FEATURES = [
+    'CD3dkgx10d8',   # index 0
+    'Rbodymass',     # index 1
+    'Recipientage',  # index 2
+    'CD34kgx10d6',   # index 3
+    'Disease',       # index 4
+    'Relapse',       # index 5
+    'Gendermatch',   # index 6
+    'HLAmatch',      # index 7
+]
+
+# Labels ASCII pour matplotlib/PDF (sans accents)
+FEATURE_LABELS_PDF = {
+    'CD3dkgx10d8' : 'Dose CD3+',
+    'Rbodymass'   : 'Masse corporelle (kg)',
+    'Recipientage': 'Age du receveur (ans)',
+    'CD34kgx10d6' : 'Dose CD34+',
+    'Disease'     : 'Type de maladie',
+    'Relapse'     : 'Antecedent de rechute',
+    'Gendermatch' : 'Compatibilite de genre',
+    'HLAmatch'    : 'Compatibilite HLA',
 }
+
 # Labels avec accents pour l'interface web
-FEATURE_LABELS_UI={
-    'Recipientage':'Âge du receveur (ans)','Rbodymass':'Masse corporelle (kg)',
-    'CD34kgx10d6':'Dose CD34+','CD3dkgx10d8':'Dose CD3+',
-    'Disease':'Type de maladie','Relapse':'Antécédent de rechute',
-    'Gendermatch':'Compatibilité de genre','HLAmatch':'Compatibilité HLA'
+FEATURE_LABELS_UI = {
+    'CD3dkgx10d8' : 'Dose CD3+',
+    'Rbodymass'   : 'Masse corporelle (kg)',
+    'Recipientage': 'Âge du receveur (ans)',
+    'CD34kgx10d6' : 'Dose CD34+',
+    'Disease'     : 'Type de maladie',
+    'Relapse'     : 'Antécédent de rechute',
+    'Gendermatch' : 'Compatibilité de genre',
+    'HLAmatch'    : 'Compatibilité HLA',
 }
-DISEASE_MAP={'ALL (Leucémie aiguë lymphoblastique)':0,'AML (Leucémie aiguë myéloïde)':1,'CML (Leucémie myéloïde chronique)':2,'Autre':3}
-RELAPSE_MAP={'Non':0,'Oui':1}
-GENDERMATCH_MAP={'Matched (compatible)':0,'Mismatched (incompatible)':1}
-HLAMATCH_MAP={'Matched (0 mismatch)':0,'1 antigène incompatible':1,'2 antigènes incompatibles':2,'3 antigènes incompatibles':3}
+
+# ── Mappings catégoriels alignés avec encode_categories() de data_processing.py ──
+# encode_categories fait : df[col].astype('category').cat.codes
+# Les codes sont assignés par ordre ALPHABÉTIQUE des valeurs dans le dataset.
+#
+# Disease : valeurs ARFF = 'ALL','AML','chronic','nonmalignant','lymphoma'
+#   → codes alphabétiques : ALL=0, AML=1, chronic=2, lymphoma=3, nonmalignant=4
+# Relapse : '0','1' → 0=non, 1=oui (déjà numérique dans l'ARFF)
+# Gendermatch : '0','1' → 0, 1
+# HLAmatch : '0','1','2','3' → 0,1,2,3
+
+DISEASE_MAP = {
+    'ALL (Leucémie aiguë lymphoblastique)' : 0,
+    'AML (Leucémie aiguë myéloïde)'        : 1,
+    'CML / Chronique'                       : 2,
+    'Lymphome'                              : 3,
+    'Non-malin'                             : 4,
+}
+RELAPSE_MAP     = {'Non': 0, 'Oui': 1}
+GENDERMATCH_MAP = {'Matched (compatible)': 0, 'Mismatched (incompatible)': 1}
+HLAMATCH_MAP    = {
+    'Matched (0 mismatch)'      : 0,
+    '1 antigène incompatible'   : 1,
+    '2 antigènes incompatibles' : 2,
+    '3 antigènes incompatibles' : 3,
+}
 HEURES=[f"{h:02d}:{m:02d}" for h in range(8,19) for m in (0,30)]
 MOTIFS=["Consultation initiale","Suivi post-greffe","Résultats d'analyses","Bilan pré-greffe","Urgence médicale","Autre"]
 JOURS_FR=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"]
@@ -227,30 +269,67 @@ MOIS_FR=["","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","
 # ─────────────────────────────────────────────
 @st.cache_resource
 def load_artifacts():
-    for path in ['models/final_model.joblib','../models/final_model.joblib',
-                 os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','models','final_model.joblib'),
-                 os.path.join(os.getcwd(),'models','final_model.joblib')]:
-        if os.path.exists(path):
-            sp=path.replace('final_model.joblib','scaler.joblib')
-            return joblib.load(path),(joblib.load(sp) if os.path.exists(sp) else None)
-    return None,None
+    """
+    Charge model, scaler et features_list sauvegardés par train_model.py.
+    Cherche dans plusieurs emplacements possibles.
+    """
+    search_roots = [
+        os.getcwd(),
+        os.path.dirname(os.path.abspath(__file__)),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'),
+    ]
+    for root in search_roots:
+        model_path = os.path.join(root, 'models', 'final_model.joblib')
+        if os.path.exists(model_path):
+            scaler_path   = os.path.join(root, 'models', 'scaler.joblib')
+            features_path = os.path.join(root, 'models', 'features_list.joblib')
+            model   = joblib.load(model_path)
+            scaler  = joblib.load(scaler_path)  if os.path.exists(scaler_path)   else None
+            # features_list.joblib contient IMPORTANT_FEATURES dans le bon ordre
+            feat_list = joblib.load(features_path) if os.path.exists(features_path) else FEATURES
+            return model, scaler, feat_list
+    return None, None, FEATURES
 
-def predict_fn(model,scaler,input_df):
-    Xs=scaler.transform(input_df) if scaler else input_df.values
-    return int(model.predict(Xs)[0]),float(model.predict_proba(Xs)[0][1])
+def predict_fn(model, scaler, input_df):
+    """Prédit avec le scaler et le modèle chargés depuis train_model.py."""
+    Xs = scaler.transform(input_df) if scaler else input_df.values
+    return int(model.predict(Xs)[0]), float(model.predict_proba(Xs)[0][1])
 
-def compute_shap(model,scaler,input_df):
+def compute_shap(model, scaler, input_df):
+    """Calcule les valeurs SHAP. input_df doit avoir les colonnes dans l'ordre feat_list."""
     try:
         import shap
-        Xs=pd.DataFrame(scaler.transform(input_df),columns=input_df.columns) if scaler else input_df
-        if type(model).__name__ in ('RandomForestClassifier','XGBClassifier','LGBMClassifier'):
-            exp=shap.TreeExplainer(model); sv=exp.shap_values(Xs)
-            return dict(zip(FEATURES,sv[1][0] if isinstance(sv,list) else sv[0]))
-        else:
-            bg=pd.DataFrame(np.zeros((1,len(FEATURES))),columns=FEATURES)
-            exp=shap.KernelExplainer(model.predict_proba,bg)
-            return dict(zip(FEATURES,exp.shap_values(Xs,nsamples=100)[1][0]))
-    except: return None
+    except ImportError:
+        st.warning("📊 SHAP non disponible. `pip install shap`")
+        return None
+
+    try:
+        Xs   = pd.DataFrame(scaler.transform(input_df), columns=input_df.columns) if scaler else input_df.copy()
+        cols = list(input_df.columns)
+        mname = type(model).__name__
+
+        if mname in ('RandomForestClassifier', 'XGBClassifier', 'LGBMClassifier'):
+            exp  = shap.TreeExplainer(model)
+            sv   = exp.shap_values(Xs)
+            # RandomForest → liste [class0, class1] ; XGB/LGBM → tableau direct
+            if isinstance(sv, list) and len(sv) == 2:
+                vals = sv[1][0]          # probabilité de survie (classe 1)
+            elif isinstance(sv, np.ndarray) and sv.ndim == 2:
+                vals = sv[0]             # XGB/LGBM : tableau (n_samples, n_features)
+            else:
+                vals = sv[0] if isinstance(sv, list) else sv
+            return dict(zip(cols, vals))
+
+        else:  # SVM / autres
+            bg  = pd.DataFrame(np.zeros((1, len(cols))), columns=cols)
+            exp = shap.KernelExplainer(model.predict_proba, bg)
+            sv  = exp.shap_values(Xs, nsamples=100)
+            vals = sv[1][0] if isinstance(sv, list) else sv[0]
+            return dict(zip(cols, vals))
+
+    except Exception as e:
+        st.warning(f"⚠️ Erreur SHAP : {e}")
+        return None
 
 # ─────────────────────────────────────────────
 #  GRAPHIQUES SHAP
@@ -898,8 +977,8 @@ def show_results_page():
 #  PAGE PRINCIPALE
 # ═══════════════════════════════════════
 def show_main_app():
-    user=st.session_state.current_user
-    model,scaler=load_artifacts()
+    user  = st.session_state.current_user
+    model, scaler, feat_list = load_artifacts()
 
     st.markdown(f"""
     <div class="header-banner">
@@ -908,67 +987,82 @@ def show_main_app():
             <p>Système d'aide à la décision — Greffes de moelle osseuse pédiatriques</p></div>
         </div>
         <div class="header-user"><strong>Dr. {user['prenom']} {user['nom']}</strong>{user['specialite']}</div>
-    </div>""",unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
-    _,col_logout=st.columns([5,1])
+    _, col_logout = st.columns([5, 1])
     with col_logout:
         if st.button("🚪 Déconnexion"):
-            st.session_state.logged_in=False; st.session_state.current_user=None
-            st.session_state.page='main'; st.rerun()
+            st.session_state.logged_in  = False
+            st.session_state.current_user = None
+            st.session_state.page = 'main'; st.rerun()
 
     if model is None:
         st.error("⚠️ Modèle introuvable. Lancez : `python src/train_model.py`"); st.stop()
 
     st.markdown(f'<div style="text-align:right;margin-bottom:.9rem;">'
                 f'<span class="metric-chip">🤖 {type(model).__name__}</span>'
-                f'<span class="metric-chip">✅ Modèle chargé</span></div>',unsafe_allow_html=True)
+                f'<span class="metric-chip">✅ Modèle chargé</span></div>', unsafe_allow_html=True)
 
-    col_main,col_right=st.columns([3,2],gap="large")
+    col_main, col_right = st.columns([3, 2], gap="large")
 
     with col_main:
-        st.markdown('<div class="card">',unsafe_allow_html=True)
-        st.markdown('<div class="card-title">📋 Données du patient</div>',unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Variables numériques</div>',unsafe_allow_html=True)
-        ca,cb=st.columns(2)
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">📋 Données du patient</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Variables numériques</div>', unsafe_allow_html=True)
+        ca, cb = st.columns(2)
         with ca:
-            recipientage=st.number_input("Âge du receveur (ans)",0.0,25.0,8.0,.5)
-            cd34=st.number_input("Dose CD34+ (×10⁶/kg)",0.0,50.0,5.5,.1)
+            recipientage = st.number_input("Âge du receveur (ans)",  0.0, 25.0,  8.0, .5)
+            cd34         = st.number_input("Dose CD34+ (×10⁶/kg)",   0.0, 50.0,  5.5, .1)
         with cb:
-            rbodymass=st.number_input("Masse corporelle (kg)",5.0,150.0,28.0,.5)
-            cd3=st.number_input("Dose CD3+ (×10⁸/kg)",0.0,100.0,3.2,.1)
-        st.markdown('<div class="section-title">Variables catégorielles</div>',unsafe_allow_html=True)
-        cc,cd=st.columns(2)
+            rbodymass    = st.number_input("Masse corporelle (kg)",   5.0, 150.0, 28.0, .5)
+            cd3          = st.number_input("Dose CD3+ (×10⁸/kg)",    0.0, 100.0,  3.2, .1)
+        st.markdown('<div class="section-title">Variables catégorielles</div>', unsafe_allow_html=True)
+        cc, cd = st.columns(2)
         with cc:
-            disease_str=st.selectbox("Type de maladie",list(DISEASE_MAP.keys()))
-            gendermatch_str=st.selectbox("Compatibilité de genre",list(GENDERMATCH_MAP.keys()))
+            disease_str     = st.selectbox("Type de maladie",        list(DISEASE_MAP.keys()))
+            gendermatch_str = st.selectbox("Compatibilité de genre",  list(GENDERMATCH_MAP.keys()))
         with cd:
-            relapse_str=st.selectbox("Antécédent de rechute",list(RELAPSE_MAP.keys()))
-            hlamatch_str=st.selectbox("Compatibilité HLA",list(HLAMATCH_MAP.keys()))
-        st.markdown("<br>",unsafe_allow_html=True)
-        predict_btn=st.button("🔬 Analyser la prédiction")
-        st.markdown('<div class="disclaimer">⚠️ <strong>Avertissement clinique :</strong> Cet outil est un support décisionnel. Il ne remplace pas le jugement médical.</div>',unsafe_allow_html=True)
-        st.markdown('</div>',unsafe_allow_html=True)
+            relapse_str  = st.selectbox("Antécédent de rechute", list(RELAPSE_MAP.keys()))
+            hlamatch_str = st.selectbox("Compatibilité HLA",      list(HLAMATCH_MAP.keys()))
+        st.markdown("<br>", unsafe_allow_html=True)
+        predict_btn = st.button("🔬 Analyser la prédiction")
+        st.markdown('<div class="disclaimer">⚠️ <strong>Avertissement clinique :</strong> '
+                    'Cet outil est un support décisionnel. Il ne remplace pas le jugement médical.</div>',
+                    unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         if predict_btn:
-            input_df=pd.DataFrame([[recipientage,rbodymass,cd34,cd3,
-                DISEASE_MAP[disease_str],RELAPSE_MAP[relapse_str],
-                GENDERMATCH_MAP[gendermatch_str],HLAMATCH_MAP[hlamatch_str]]],columns=FEATURES)
-            with st.spinner("Analyse en cours..."):
-                pred,prob=predict_fn(model,scaler,input_df)
-                shap_vals=compute_shap(model,scaler,input_df)
-            st.session_state.last_result={
-                'pred':pred,'prob':prob,'shap_vals':shap_vals,
-                'ref':f"PAT-{random.randint(1000,9999)}",
-                'datetime':datetime.now().strftime("%d %B %Y — %Hh%M"),
-                'medecin':f"{user['prenom']} {user['nom']}",
-                'specialite':user.get('specialite',''),
-                'model_name':type(model).__name__,
-                'recipientage':recipientage,'rbodymass':rbodymass,
-                'cd34':cd34,'cd3':cd3,
-                'disease_str':disease_str,'relapse_str':relapse_str,
-                'gendermatch_str':gendermatch_str,'hlamatch_str':hlamatch_str,
+            # Valeurs brutes saisies
+            raw_values = {
+                'CD3dkgx10d8' : cd3,
+                'Rbodymass'   : rbodymass,
+                'Recipientage': recipientage,
+                'CD34kgx10d6' : cd34,
+                'Disease'     : DISEASE_MAP[disease_str],
+                'Relapse'     : RELAPSE_MAP[relapse_str],
+                'Gendermatch' : GENDERMATCH_MAP[gendermatch_str],
+                'HLAmatch'    : HLAMATCH_MAP[hlamatch_str],
             }
-            st.session_state.page='results'; st.rerun()
+            # DataFrame dans l'ordre exact de feat_list (= IMPORTANT_FEATURES du train)
+            input_df = pd.DataFrame([[raw_values[f] for f in feat_list]], columns=feat_list)
+
+            with st.spinner("Analyse en cours..."):
+                pred, prob  = predict_fn(model, scaler, input_df)
+                shap_vals   = compute_shap(model, scaler, input_df)
+
+            st.session_state.last_result = {
+                'pred': pred, 'prob': prob, 'shap_vals': shap_vals,
+                'ref'     : f"PAT-{random.randint(1000,9999)}",
+                'datetime': datetime.now().strftime("%d %B %Y — %Hh%M"),
+                'medecin' : f"{user['prenom']} {user['nom']}",
+                'specialite': user.get('specialite',''),
+                'model_name': type(model).__name__,
+                'recipientage': recipientage, 'rbodymass': rbodymass,
+                'cd34': cd34, 'cd3': cd3,
+                'disease_str'    : disease_str,    'relapse_str': relapse_str,
+                'gendermatch_str': gendermatch_str, 'hlamatch_str': hlamatch_str,
+            }
+            st.session_state.page = 'results'; st.rerun()
 
     with col_right:
         st.markdown('<div class="card">',unsafe_allow_html=True)
