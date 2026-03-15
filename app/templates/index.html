@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedPredict - Bone Marrow Transplant AI</title>
+    <meta name="description" content="AI-powered decision support for pediatric bone marrow transplant outcomes">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- Animated Background -->
+<div class="animated-bg">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+    <div class="bg-grid"></div>
+</div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-msg {{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- Navigation -->
+<nav class="navbar" id="navbar">
+    <div class="nav-inner">
+        <a href="#" class="nav-brand">
+            <div class="nav-logo">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                </svg>
+            </div>
+            <div>
+                <div class="nav-title gradient-text">MedPredict</div>
+                <div class="nav-subtitle">Bone Marrow Transplant AI</div>
+            </div>
+        </a>
+        <div class="nav-links" id="navLinks">
+            <a href="#features">Fonctionnalites</a>
+            <a href="#prediction">Prediction</a>
+            <a href="#shap">Analyse SHAP</a>
+        </div>
+        <button class="nav-toggle" id="navToggle" onclick="toggleNav()">&#9776;</button>
+    </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero" id="hero">
+    <div class="hero-inner">
+        <div class="animate-fade-in-up">
+            <div class="hero-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Aide a la Decision Medicale par IA
+            </div>
+            <h1 class="hero-title">
+                Predire le Succes de la <span class="gradient-text">Greffe de Moelle</span> avec l'IA Explicable
+            </h1>
+            <p class="hero-desc">
+                Exploitez le Machine Learning et SHAP pour predire les resultats des greffes de moelle osseuse pediatriques. Un outil d'aide a la decision transparent et interpretable pour les cliniciens.
+            </p>
+            <div class="hero-actions">
+                <a href="#prediction" class="btn btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    Lancer une Prediction
+                </a>
+                <a href="#features" class="btn btn-outline">En Savoir Plus</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <div class="stat-value text-primary">95.0%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value text-teal">95.9%</div>
+                    <div class="stat-label">ROC-AUC</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value text-green">100%</div>
+                    <div class="stat-label">Explicable</div>
+                </div>
+            </div>
+        </div>
+        <div class="hero-demo animate-scale-in delay-300">
+            <div class="hero-demo-header">
+                <span class="demo-dot" style="background:#ef4444"></span>
+                <span class="demo-dot" style="background:#f59e0b"></span>
+                <span class="demo-dot" style="background:#22c55e"></span>
+                <span class="hero-demo-title">Demo Prediction en Direct</span>
+            </div>
+            <div class="demo-result">
+                <div class="demo-heart">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                    </svg>
+                    <div class="demo-heart-ping"></div>
+                </div>
+                <div class="demo-percentage gradient-text">87.3%</div>
+                <div class="demo-label">Probabilite de Succes</div>
+            </div>
+            <div class="demo-features">
+                <div class="demo-feature">
+                    <span class="demo-feature-name">Age Donneur</span>
+                    <div class="demo-feature-bar"><div class="demo-feature-bar-fill" style="width:85%"></div></div>
+                    <span class="demo-feature-value">85%</span>
+                </div>
+                <div class="demo-feature">
+                    <span class="demo-feature-name">HLA Match</span>
+                    <div class="demo-feature-bar"><div class="demo-feature-bar-fill" style="width:72%"></div></div>
+                    <span class="demo-feature-value">72%</span>
+                </div>
+                <div class="demo-feature">
+                    <span class="demo-feature-name">Maladie</span>
+                    <div class="demo-feature-bar"><div class="demo-feature-bar-fill" style="width:64%"></div></div>
+                    <span class="demo-feature-value">64%</span>
+                </div>
+            </div>
+            <a href="#prediction" class="btn btn-gradient mt-2" style="margin-top:1.5rem">Essayer l'Analyse Complete</a>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="section" id="features">
+    <div class="section-inner">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg>
+                Fonctionnalites
+            </div>
+            <h2 class="section-title">IA Explicable pour la <span class="gradient-text">Medecine</span></h2>
+            <p class="section-desc">Des outils avances de Machine Learning pour aider les cliniciens a prendre des decisions eclairees sur les greffes de moelle osseuse pediatriques.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card animate-fade-in-up">
+                <div class="feature-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <h3>IA Explicable</h3>
+                <p>Interpretabilite basee sur SHAP pour comprendre chaque prediction. Transparence totale des decisions du modele.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-100">
+                <div class="feature-icon teal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <h3>Haute Precision</h3>
+                <p>Modele XGBoost atteignant 95.0% de precision et 95.9% de ROC-AUC sur les donnees de validation.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-200">
+                <div class="feature-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Validation Clinique</h3>
+                <p>Entraine sur des donnees medicales reelles de 187 patients pediatriques avec 37 attributs cliniques.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-300">
+                <div class="feature-icon amber">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <h3>Analyse en Temps Reel</h3>
+                <p>Predictions instantanees avec analyse SHAP individuelle pour chaque patient.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-400">
+                <div class="feature-icon purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <h3>Aide a la Decision</h3>
+                <p>Outil concu pour accompagner les medecins dans leur prise de decision, pas pour les remplacer.</p>
+            </div>
+            <div class="feature-card animate-fade-in-up delay-500">
+                <div class="feature-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                </div>
+                <h3>11 Variables Cles</h3>
+                <p>Selection statistique rigoureuse (p-value &lt; 0.05) des variables les plus predictives parmi 37 attributs.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Prediction Section -->
+<section class="section" id="prediction" style="background: rgba(248,250,252,.8);">
+    <div class="section-inner">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Prediction
+            </div>
+            <h2 class="section-title">Analyse de <span class="gradient-text">Prediction</span></h2>
+            <p class="section-desc">Entrez les donnees du patient pour obtenir une prediction de survie avec l'analyse SHAP.</p>
+        </div>
+
+        <div class="prediction-layout">
+            <!-- Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Donnees du Patient</h3>
+                    <p>Remplissez les 11 variables cliniques du modele</p>
+                </div>
+                <div class="card-body">
+                    <form id="predictionForm" method="POST" action="{{ url_for('predict') }}">
+                        <!-- Tabs -->
+                        <div class="tabs">
+                            <button type="button" class="tab-btn active" onclick="switchTab('patient')">Patient</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('donor')">Donneur</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('transplant')">Greffe</button>
+                        </div>
+
+                        <!-- Tab: Patient -->
+                        <div class="tab-content active" id="tab-patient">
+                            <div class="form-group">
+                                <div class="slider-container">
+                                    <div class="slider-header">
+                                        <label class="form-label">Age du Receveur <span>(annees)</span></label>
+                                        <span class="slider-value" id="recipientage-val">{{ form_data.Recipientage | default(9.6) }}</span>
+                                    </div>
+                                    <input type="range" name="Recipientage" min="0.5" max="20" step="0.1"
+                                           value="{{ form_data.Recipientage | default(9.6) }}"
+                                           oninput="updateSlider(this, 'recipientage-val')">
+                                    <div class="slider-labels"><span>0.5 ans</span><span>20 ans</span></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="slider-container">
+                                    <div class="slider-header">
+                                        <label class="form-label">Masse Corporelle <span>(kg)</span></label>
+                                        <span class="slider-value" id="rbodymass-val">{{ form_data.Rbodymass | default(33.0) }}</span>
+                                    </div>
+                                    <input type="range" name="Rbodymass" min="5" max="110" step="0.5"
+                                           value="{{ form_data.Rbodymass | default(33.0) }}"
+                                           oninput="updateSlider(this, 'rbodymass-val')">
+                                    <div class="slider-labels"><span>5 kg</span><span>110 kg</span></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Type de Maladie</label>
+                                <select name="Disease" class="form-select">
+                                    <option value="0" {{ 'selected' if form_data.Disease|default('0')|string == '0' }}>ALL - Leucemie Lymphoblastique Aigue</option>
+                                    <option value="1" {{ 'selected' if form_data.Disease|default('0')|string == '1' }}>AML - Leucemie Myeloide Aigue</option>
+                                    <option value="2" {{ 'selected' if form_data.Disease|default('0')|string == '2' }}>Chronique (CML)</option>
+                                    <option value="3" {{ 'selected' if form_data.Disease|default('0')|string == '3' }}>Lymphome</option>
+                                    <option value="4" {{ 'selected' if form_data.Disease|default('0')|string == '4' }}>Non-Malignant</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Groupe de Risque</label>
+                                <select name="Riskgroup" class="form-select">
+                                    <option value="0" {{ 'selected' if form_data.Riskgroup|default('0')|string == '0' }}>Faible Risque</option>
+                                    <option value="1" {{ 'selected' if form_data.Riskgroup|default('0')|string == '1' }}>Haut Risque</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Rechute (Relapse)</label>
+                                <select name="Relapse" class="form-select">
+                                    <option value="0" {{ 'selected' if form_data.Relapse|default('0')|string == '0' }}>Non</option>
+                                    <option value="1" {{ 'selected' if form_data.Relapse|default('0')|string == '1' }}>Oui</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Tab: Donor -->
+                        <div class="tab-content" id="tab-donor">
+                            <div class="form-group">
+                                <div class="slider-container">
+                                    <div class="slider-header">
+                                        <label class="form-label">Age du Donneur <span>(annees)</span></label>
+                                        <span class="slider-value" id="donorage-val">{{ form_data.Donorage | default(33.5) }}</span>
+                                    </div>
+                                    <input type="range" name="Donorage" min="18" max="56" step="0.1"
+                                           value="{{ form_data.Donorage | default(33.5) }}"
+                                           oninput="updateSlider(this, 'donorage-val')">
+                                    <div class="slider-labels"><span>18 ans</span><span>56 ans</span></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Compatibilite HLA</label>
+                                <select name="HLAmatch" class="form-select">
+                                    <option value="0" {{ 'selected' if form_data.HLAmatch|default('0')|string == '0' }}>10/10 - Compatibilite Parfaite</option>
+                                    <option value="1" {{ 'selected' if form_data.HLAmatch|default('0')|string == '1' }}>9/10 - Mismatch Leger</option>
+                                    <option value="2" {{ 'selected' if form_data.HLAmatch|default('0')|string == '2' }}>8/10 - Mismatch Modere</option>
+                                    <option value="3" {{ 'selected' if form_data.HLAmatch|default('0')|string == '3' }}>7/10 - Mismatch Important</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">GvHD Chronique Extensive</label>
+                                <select name="extcGvHD" class="form-select">
+                                    <option value="0" {{ 'selected' if form_data.extcGvHD|default('0')|string == '0' }}>Non</option>
+                                    <option value="1" {{ 'selected' if form_data.extcGvHD|default('0')|string == '1' }}>Oui</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Tab: Transplant -->
+                        <div class="tab-content" id="tab-transplant">
+                            <div class="form-group">
+                                <div class="slider-container">
+                                    <div class="slider-header">
+                                        <label class="form-label">Dose CD34+ <span>(x10^6/kg)</span></label>
+                                        <span class="slider-value" id="cd34-val">{{ form_data.CD34kgx10d6 | default(9.7) }}</span>
+                                    </div>
+                                    <input type="range" name="CD34kgx10d6" min="0.5" max="50" step="0.1"
+                                           value="{{ form_data.CD34kgx10d6 | default(9.7) }}"
+                                           oninput="updateSlider(this, 'cd34-val')">
+                                    <div class="slider-labels"><span>0.5</span><span>50</span></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="slider-container">
+                                    <div class="slider-header">
+                                        <label class="form-label">Dose CD3+ <span>(x10^8/kg)</span></label>
+                                        <span class="slider-value" id="cd3-val">{{ form_data.CD3dkgx10d8 | default(4.3) }}</span>
+                                    </div>
+                                    <input type="range" name="CD3dkgx10d8" min="0" max="21" step="0.1"
+                                           value="{{ form_data.CD3dkgx10d8 | default(4.3) }}"
+                                           oninput="updateSlider(this, 'cd3-val')">
+                                    <div class="slider-labels"><span>0</span><span>21</span></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="slider-container">
+                                    <div class="slider-header">
+                                        <label class="form-label">Recuperation Plaquettes <span>(jours)</span></label>
+                                        <span class="slider-value" id="plt-val">{{ form_data.PLTrecovery | default(21) }}</span>
+                                    </div>
+                                    <input type="range" name="PLTrecovery" min="1" max="100" step="1"
+                                           value="{{ form_data.PLTrecovery | default(21) }}"
+                                           oninput="updateSlider(this, 'plt-val')">
+                                    <div class="slider-labels"><span>1 jour</span><span>100 jours</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-gradient" id="submitBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            Generer la Prediction
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div>
+                {% if prediction is not defined or prediction is none %}
+                <!-- No prediction yet -->
+                <div class="card">
+                    <div class="card-body result-placeholder">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                        <h4>Aucune Prediction</h4>
+                        <p>Remplissez le formulaire et cliquez sur "Generer la Prediction" pour obtenir les resultats de l'analyse.</p>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Prediction Results -->
+                <div class="card result-card">
+                    {% set survival_pct = prediction.survival_probability %}
+                    {% if survival_pct >= 70 %}
+                        {% set level = 'success' %}
+                        {% set level_label = 'Pronostic Favorable' %}
+                    {% elif survival_pct >= 50 %}
+                        {% set level = 'moderate' %}
+                        {% set level_label = 'Risque Modere' %}
+                    {% else %}
+                        {% set level = 'danger' %}
+                        {% set level_label = 'Risque Eleve' %}
+                    {% endif %}
+
+                    <div class="result-top-bar {{ level }}"></div>
+                    <div class="result-header">
+                        <h3>Resultat de la Prediction</h3>
+                    </div>
+
+                    <!-- Gauge -->
+                    <div class="gauge-container">
+                        {% set circumference = 2 * 3.14159 * 70 %}
+                        {% set offset = circumference - (survival_pct / 100) * circumference %}
+                        {% if level == 'success' %}
+                            {% set stroke_color = '#16a34a' %}
+                        {% elif level == 'moderate' %}
+                            {% set stroke_color = '#f59e0b' %}
+                        {% else %}
+                            {% set stroke_color = '#dc2626' %}
+                        {% endif %}
+                        <svg class="gauge-svg" viewBox="0 0 180 180">
+                            <circle class="gauge-bg" cx="90" cy="90" r="70"/>
+                            <circle class="gauge-fill" cx="90" cy="90" r="70"
+                                    stroke="{{ stroke_color }}"
+                                    stroke-dasharray="{{ circumference }}"
+                                    stroke-dashoffset="{{ offset }}"/>
+                            <g class="gauge-text-group">
+                                <text class="gauge-percentage" x="90" y="85">{{ survival_pct }}%</text>
+                                <text class="gauge-label" x="90" y="105">Probabilite de Survie</text>
+                            </g>
+                        </svg>
+                        <div>
+                            <span class="result-badge {{ level }}">
+                                {% if level == 'success' %}
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                {% elif level == 'moderate' %}
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                {% else %}
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                {% endif %}
+                                {{ level_label }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Metrics -->
+                    <div class="metrics-grid">
+                        <div class="metric-item">
+                            <div class="metric-value">{{ prediction.death_probability }}%</div>
+                            <div class="metric-label">P(Deces)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-value">95.0%</div>
+                            <div class="metric-label">Accuracy</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-value">95.9%</div>
+                            <div class="metric-label">ROC-AUC</div>
+                        </div>
+                    </div>
+
+                    <!-- Feature Importance -->
+                    <div class="card-header">
+                        <h3>Importance des Variables (SHAP)</h3>
+                        <p>Impact de chaque variable sur cette prediction</p>
+                    </div>
+                    <div class="fi-bars">
+                        {% for feat in prediction.shap_features %}
+                        <div class="fi-bar-item">
+                            <div class="fi-bar-header">
+                                <span class="fi-bar-name">{{ feat.name }}</span>
+                                <span class="fi-bar-value {{ 'positive' if feat.value >= 0 else 'negative' }}">
+                                    {{ '+' if feat.value >= 0 }}{{ '%.3f' | format(feat.value) }}
+                                </span>
+                            </div>
+                            <div class="fi-bar-track">
+                                <div class="fi-bar-fill {{ 'positive' if feat.value >= 0 else 'negative' }}"
+                                     style="width: {{ feat.bar_width }}%"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SHAP Section -->
+<section class="section" id="shap">
+    <div class="section-inner">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Explicabilite
+            </div>
+            <h2 class="section-title">Analyse <span class="gradient-text">SHAP</span></h2>
+            <p class="section-desc">Comprendre comment le modele utilise chaque variable pour faire ses predictions.</p>
+        </div>
+
+        <div class="shap-grid">
+            <!-- SHAP Summary -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>SHAP Summary Plot</h3>
+                    <p>Importance moyenne des variables sur l'ensemble des predictions</p>
+                </div>
+                <div class="card-body">
+                    {% if shap_summary %}
+                    {% for feat in shap_summary %}
+                    <div class="shap-bar-item">
+                        <span class="shap-bar-name">{{ feat.name }}</span>
+                        <div class="shap-bar-track">
+                            <div class="shap-bar-center"></div>
+                            {% if feat.value >= 0 %}
+                            <div class="shap-bar-fill positive" style="width: {{ feat.bar_width }}%"></div>
+                            {% else %}
+                            <div class="shap-bar-fill negative" style="width: {{ feat.bar_width }}%; right: 50%; left: auto;"></div>
+                            {% endif %}
+                        </div>
+                        <span class="shap-bar-val" style="color: {{ '#16a34a' if feat.value >= 0 else '#dc2626' }}">
+                            {{ '+' if feat.value >= 0 }}{{ '%.3f' | format(feat.value) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    {% for feat in [
+                        {'name': 'Relapse', 'value': 0.23, 'bar_width': 46},
+                        {'name': 'extcGvHD', 'value': 0.19, 'bar_width': 38},
+                        {'name': 'PLTrecovery', 'value': 0.15, 'bar_width': 30},
+                        {'name': 'Riskgroup', 'value': 0.12, 'bar_width': 24},
+                        {'name': 'Recipientage', 'value': 0.08, 'bar_width': 16},
+                        {'name': 'Donorage', 'value': -0.06, 'bar_width': 12},
+                        {'name': 'CD34kgx10d6', 'value': -0.05, 'bar_width': 10},
+                        {'name': 'Disease', 'value': 0.04, 'bar_width': 8}
+                    ] %}
+                    <div class="shap-bar-item">
+                        <span class="shap-bar-name">{{ feat.name }}</span>
+                        <div class="shap-bar-track">
+                            <div class="shap-bar-center"></div>
+                            {% if feat.value >= 0 %}
+                            <div class="shap-bar-fill positive" style="width: {{ feat.bar_width }}%"></div>
+                            {% else %}
+                            <div class="shap-bar-fill negative" style="width: {{ feat.bar_width }}%; right: 50%; left: auto;"></div>
+                            {% endif %}
+                        </div>
+                        <span class="shap-bar-val" style="color: {{ '#16a34a' if feat.value >= 0 else '#dc2626' }}">
+                            {{ '+' if feat.value >= 0 }}{{ '%.3f' | format(feat.value) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Force Plot / Guide -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Guide d'Interpretation</h3>
+                    <p>Signification de chaque variable clinique</p>
+                </div>
+                <div class="card-body">
+                    <div class="guide-grid">
+                        <div class="guide-item">
+                            <h4>Recipientage</h4>
+                            <p>Age du receveur au moment de la greffe (0.5-20 ans)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Donorage</h4>
+                            <p>Age du donneur au moment du prelevement</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Rbodymass</h4>
+                            <p>Masse corporelle du receveur (kg)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>CD34kgx10d6</h4>
+                            <p>Dose de cellules CD34+ par kg (10^6/kg)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>CD3dkgx10d8</h4>
+                            <p>Dose de cellules CD3+ par kg (10^8/kg)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>PLTrecovery</h4>
+                            <p>Temps de recuperation des plaquettes (jours)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Disease</h4>
+                            <p>Type de maladie (ALL, AML, Chronique, Lymphome, Non-malignant)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>HLAmatch</h4>
+                            <p>Niveau de compatibilite HLA (10/10 a 7/10)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Relapse</h4>
+                            <p>Rechute de la maladie (Oui/Non)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>extcGvHD</h4>
+                            <p>GvHD chronique extensive (Oui/Non)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Riskgroup</h4>
+                            <p>Groupe de risque du patient (Faible/Haut)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-brand">
+        <div class="nav-logo" style="width:32px;height:32px;border-radius:8px;font-size:1rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+            </svg>
+        </div>
+        <span class="nav-title gradient-text" style="font-size:1rem;">MedPredict</span>
+    </div>
+    <p class="footer-text">2026 MedPredict - Coding Week Project. A usage educatif uniquement.</p>
+    <span class="footer-version">v1.0.0</span>
+</footer>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,117 +1,391 @@
-import streamlit as st
-import joblib
+import os
+import sys
+import sqlite3
+import functools
+import numpy as np
 import pandas as pd
+import joblib
 import shap
-import matplotlib.pyplot as plt
-import re
+from flask import (Flask, render_template, request, flash,
+                   redirect, url_for, session)
+from werkzeug.security import generate_password_hash, check_password_hash
 
-# 1. Configuration & Design
-st.set_page_config(page_title="PediaBMT • Expert Portal", page_icon="🩸", layout="wide")
+# Add src/ to path for data_processing imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-st.markdown("""
-    <style>
-    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
-    .main-header {
-        background: linear-gradient(90deg, #004e92 0%, #000428 100%);
-        color: white; padding: 25px; border-radius: 15px; text-align: center; margin-bottom: 25px;
-    }
-    .status-box { padding: 10px; border-radius: 10px; margin-top: 5px; font-size: 0.85rem; }
-    </style>
-    """, unsafe_allow_html=True)
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'medpredict-bmt-2026')
 
-# 2. Logique de Validation & Base de Données
-if 'user_db' not in st.session_state:
-    st.session_state['user_db'] = {"aroua.elachhab@centrale-casablanca.ma": "AdminBMT2026!"}
-if 'pending_accounts' not in st.session_state:
-    st.session_state['pending_accounts'] = {}
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
 
-def validate_email(email):
-    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
-def validate_password(p):
-    checks = {
-        "8+ carac": len(p) >= 8,
-        "Majuscule": any(c.isupper() for c in p),
-        "Chiffre": any(c.isdigit() for c in p),
-        "Spécial": bool(re.search(r"[!@#$%^&*]", p))
-    }
-    return checks
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# 3. Système d'Authentification
-if 'auth' not in st.session_state: st.session_state['auth'] = False
 
-if not st.session_state['auth']:
-    st.markdown('<div class="main-header"><h1>💉 PediaBMT Secure Gateway</h1></div>', unsafe_allow_html=True)
-    tab_log, tab_reg = st.tabs(["🔑 Connexion", "📝 Créer un compte"])
+def init_db():
+    conn = get_db()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    # Migrate: add is_admin column if missing (existing DB)
+    cursor = conn.execute("PRAGMA table_info(users)")
+    columns = [row['name'] for row in cursor.fetchall()]
+    if 'is_admin' not in columns:
+        conn.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0')
+    conn.commit()
+    # Create default admin account if none exists
+    admin = conn.execute('SELECT id FROM users WHERE is_admin = 1').fetchone()
+    if not admin:
+        conn.execute(
+            'INSERT OR IGNORE INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)',
+            ('admin', generate_password_hash('admin'))
+        )
+        conn.commit()
+    conn.close()
 
-    with tab_log:
-        u_email = st.text_input("Email professionnel", key="log_mail")
-        u_pwd = st.text_input("Mot de passe", type="password", key="log_pwd")
-        if st.button("Accéder au Dashboard"):
-            if u_email in st.session_state['user_db'] and st.session_state['user_db'][u_email] == u_pwd:
-                st.session_state['auth'] = True
-                st.session_state['user'] = u_email
-                st.rerun()
-            else: st.error("Accès refusé. Identifiants incorrects ou compte non validé.")
 
-    with tab_reg:
-        reg_email = st.text_input("Email souhaité")
-        if reg_email and not validate_email(reg_email):
-            st.error("❌ Format d'email invalide (ex: nom@domaine.com)")
-        
-        reg_pwd = st.text_input("Mot de passe (Strong)", type="password")
-        if reg_pwd:
-            checks = validate_password(reg_pwd)
-            for label, status in checks.items():
-                color = "green" if status else "red"
-                st.markdown(f"<span style='color:{color}'>{'✅' if status else '❌'} {label}</span>", unsafe_allow_html=True)
-        
-        if st.button("Envoyer la demande à l'admin"):
-            if validate_email(reg_email) and all(validate_password(reg_pwd).values()):
-                st.session_state['pending_accounts'][reg_email] = reg_pwd
-                st.success("Demande envoyée. L'administrateur (Aroua Elachhab) doit valider votre accès.")
-            else: st.warning("Veuillez corriger les erreurs avant d'envoyer.")
-    st.stop()
+# ---------------------------------------------------------------------------
+# Auth decorator
+# ---------------------------------------------------------------------------
+def login_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Veuillez vous connecter pour acceder a cette page.', 'info')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
 
-# 4. Interface Admin & Dashboard
-st.markdown(f'<div class="main-header"><h1>🔬 Dashboard d\'Aide à la Décision</h1></div>', unsafe_allow_html=True)
 
-# Section Admin visible uniquement par le mail principal
-if st.session_state['user'] == "aroua.elachhab@centrale-casablanca.ma":
-    with st.expander("🛠️ Panneau d'Administration (Gestion des comptes)"):
-        if st.session_state['pending_accounts']:
-            for acc, p in list(st.session_state['pending_accounts'].items()):
-                col_a, col_b = st.columns([3, 1])
-                col_a.write(f"Demande de : **{acc}**")
-                if col_b.button(f"Valider {acc}"):
-                    st.session_state['user_db'][acc] = p
-                    del st.session_state['pending_accounts'][acc]
-                    st.rerun()
-        else: st.write("Aucune demande en attente.")
+def admin_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Veuillez vous connecter pour acceder a cette page.', 'info')
+            return redirect(url_for('login'))
+        if not session.get('is_admin'):
+            flash('Acces reserve aux administrateurs.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated
 
-# 5. Diagnostic & SHAP
-model = joblib.load('models/final_model.joblib')
-col_in, col_out = st.columns([1, 1.5], gap="large")
 
-with col_in:
-    st.subheader("📋 Saisie Patient")
-    age_r = st.number_input("Âge Receveur", 0.0, 20.0, 8.0)
-    cd34 = st.number_input("Dose CD34+", 0.0, 50.0, 5.5)
-    disease = st.selectbox("Maladie", [0,1,2,3], format_func=lambda x: ["ALL", "AML", "Non-Mal", "Autre"][x])
-    relapse = st.radio("Rechute", [0, 1], format_func=lambda x: "Non" if x==0 else "Oui")
+# ---------------------------------------------------------------------------
+# Model / SHAP
+# ---------------------------------------------------------------------------
+FEATURE_COLUMNS = [
+    'CD3dkgx10d8', 'CD34kgx10d6', 'Rbodymass', 'Recipientage',
+    'PLTrecovery', 'Disease', 'Relapse', 'extcGvHD',
+    'Donorage', 'HLAmatch', 'Riskgroup'
+]
 
-with col_out:
-    st.subheader("📊 Analyse IA Explicable")
-    input_df = pd.DataFrame([[age_r, 30.0, cd34, 3.2, disease, relapse, 25, 0, 25, 0, 0]], 
-                            columns=['Recipientage', 'Rbodymass', 'CD34kgx10d6', 'CD3dkgx10d8', 'Disease', 
-                                    'Relapse', 'PLTrecovery', 'extcGvHD', 'Donorage', 'HLAmatch', 'Riskgroup'])
+FEATURE_LABELS = {
+    'CD3dkgx10d8': 'Dose CD3+',
+    'CD34kgx10d6': 'Dose CD34+',
+    'Rbodymass': 'Masse Corporelle',
+    'Recipientage': 'Age Receveur',
+    'PLTrecovery': 'Recup. Plaquettes',
+    'Disease': 'Type de Maladie',
+    'Relapse': 'Rechute',
+    'extcGvHD': 'GvHD Chronique',
+    'Donorage': 'Age Donneur',
+    'HLAmatch': 'Compatibilite HLA',
+    'Riskgroup': 'Groupe de Risque'
+}
 
-    if st.button("🚀 ANALYSER"):
-        prob = model.predict_proba(input_df)[0][1]
-        st.metric("Probabilité de Survie", f"{(1-prob)*100:.1f}%")
-        
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'final_model.joblib')
+model = None
+explainer = None
+
+
+def load_model():
+    global model, explainer
+    try:
+        model = joblib.load(MODEL_PATH)
         explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(input_df)
-        fig, ax = plt.subplots()
-        shap.force_plot(explainer.expected_value, shap_values[0], input_df.iloc[0], matplotlib=True, show=False)
-        st.pyplot(plt.gcf())
+        print(f"Model loaded: {type(model).__name__}")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        model = None
+        explainer = None
+
+
+def compute_shap_summary():
+    try:
+        from scipy.io import arff
+        from data_processing import (select_important_features,
+                                     handle_missing_values, handle_outliers)
+
+        data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'bone-marrow.arff')
+        raw_data, _ = arff.loadarff(data_path)
+        df = pd.DataFrame(raw_data)
+        for col in df.select_dtypes([object]):
+            df[col] = df[col].str.decode('utf-8')
+
+        df = select_important_features(df)
+        df = handle_missing_values(df)
+        df = handle_outliers(df)
+
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].astype('category').cat.codes
+
+        X = df[FEATURE_COLUMNS]
+        shap_values = explainer.shap_values(X)
+
+        mean_shap = np.mean(shap_values, axis=0)
+        abs_mean_shap = np.mean(np.abs(shap_values), axis=0)
+        max_abs = max(abs(v) for v in mean_shap) if len(mean_shap) > 0 else 1
+
+        features = []
+        for i, col in enumerate(FEATURE_COLUMNS):
+            features.append({
+                'name': FEATURE_LABELS.get(col, col),
+                'feature_key': col,
+                'value': float(mean_shap[i]),
+                'abs_value': float(abs_mean_shap[i]),
+                'bar_width': min(50, abs(float(mean_shap[i])) / max_abs * 50) if max_abs > 0 else 0
+            })
+        features.sort(key=lambda x: x['abs_value'], reverse=True)
+        return features
+    except Exception as e:
+        print(f"Error computing SHAP summary: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Auth routes
+# ---------------------------------------------------------------------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get('user_id'):
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+
+        if not username or not password:
+            flash('Veuillez remplir tous les champs.', 'error')
+            return render_template('auth/login.html')
+
+        conn = get_db()
+        user = conn.execute('SELECT * FROM users WHERE username = ?',
+                            (username,)).fetchone()
+        conn.close()
+
+        if user and check_password_hash(user['password_hash'], password):
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['is_admin'] = bool(user['is_admin'])
+            flash(f'Bienvenue, {username} !', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Nom d\'utilisateur ou mot de passe incorrect.', 'error')
+
+    return render_template('auth/login.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if session.get('user_id'):
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        password_confirm = request.form.get('password_confirm', '')
+
+        if not username or not password:
+            flash('Veuillez remplir tous les champs.', 'error')
+            return render_template('auth/register.html')
+
+        if len(username) < 3:
+            flash('Le nom d\'utilisateur doit contenir au moins 3 caracteres.', 'error')
+            return render_template('auth/register.html')
+
+        if len(password) < 4:
+            flash('Le mot de passe doit contenir au moins 4 caracteres.', 'error')
+            return render_template('auth/register.html')
+
+        if password != password_confirm:
+            flash('Les mots de passe ne correspondent pas.', 'error')
+            return render_template('auth/register.html')
+
+        conn = get_db()
+        try:
+            conn.execute(
+                'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+                (username, generate_password_hash(password))
+            )
+            conn.commit()
+            flash('Compte cree avec succes ! Connectez-vous.', 'success')
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash('Ce nom d\'utilisateur existe deja.', 'error')
+        finally:
+            conn.close()
+
+    return render_template('auth/register.html')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Vous avez ete deconnecte.', 'info')
+    return redirect(url_for('login'))
+
+
+# ---------------------------------------------------------------------------
+# App routes
+# ---------------------------------------------------------------------------
+@app.route('/')
+@login_required
+def index():
+    return render_template('home.html')
+
+
+@app.route('/predict', methods=['GET', 'POST'])
+@login_required
+def predict():
+    if request.method == 'GET':
+        form_data = session.get('form_data', {})
+        return render_template('predict.html', form_data=form_data)
+
+    if model is None or explainer is None:
+        flash("Le modele n'est pas charge.", 'error')
+        return redirect(url_for('predict'))
+
+    try:
+        form_data = {
+            'Recipientage': float(request.form.get('Recipientage', 9.6)),
+            'Rbodymass': float(request.form.get('Rbodymass', 33.0)),
+            'Disease': int(request.form.get('Disease', 0)),
+            'Riskgroup': int(request.form.get('Riskgroup', 0)),
+            'Relapse': int(request.form.get('Relapse', 0)),
+            'Donorage': float(request.form.get('Donorage', 33.5)),
+            'HLAmatch': int(request.form.get('HLAmatch', 0)),
+            'extcGvHD': int(request.form.get('extcGvHD', 0)),
+            'CD34kgx10d6': float(request.form.get('CD34kgx10d6', 9.7)),
+            'CD3dkgx10d8': float(request.form.get('CD3dkgx10d8', 4.3)),
+            'PLTrecovery': float(request.form.get('PLTrecovery', 21)),
+        }
+
+        feature_values = [form_data[col] for col in FEATURE_COLUMNS]
+        X_input = pd.DataFrame([feature_values], columns=FEATURE_COLUMNS)
+
+        proba = model.predict_proba(X_input)[0]
+        survival_prob = float(round(float(proba[0]) * 100, 1))
+        death_prob = float(round(float(proba[1]) * 100, 1))
+
+        shap_values = explainer.shap_values(X_input)
+        individual_shap = shap_values[0]
+        max_abs_shap = float(max(abs(float(v)) for v in individual_shap)) if len(individual_shap) > 0 else 1.0
+
+        shap_features = []
+        for i, col in enumerate(FEATURE_COLUMNS):
+            sv = float(individual_shap[i])
+            shap_features.append({
+                'name': FEATURE_LABELS.get(col, col),
+                'feature_key': col,
+                'value': sv,
+                'bar_width': min(100.0, abs(sv) / max_abs_shap * 80) if max_abs_shap > 0 else 0.0
+            })
+        shap_features.sort(key=lambda x: abs(x['value']), reverse=True)
+
+        prediction = {
+            'survival_probability': survival_prob,
+            'death_probability': death_prob,
+            'shap_features': shap_features,
+        }
+
+        session['prediction'] = prediction
+        session['form_data'] = form_data
+
+        return redirect(url_for('results'))
+
+    except Exception as e:
+        flash(f'Erreur lors de la prediction : {str(e)}', 'error')
+        return redirect(url_for('predict'))
+
+
+@app.route('/results')
+@login_required
+def results():
+    prediction = session.get('prediction')
+    return render_template('results.html', prediction=prediction)
+
+
+@app.route('/shap')
+@login_required
+def shap_page():
+    shap_summary = None
+    if explainer is not None:
+        shap_summary = compute_shap_summary()
+    return render_template('shap.html', shap_summary=shap_summary)
+
+
+# ---------------------------------------------------------------------------
+# Admin routes
+# ---------------------------------------------------------------------------
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    conn = get_db()
+    users = conn.execute(
+        'SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC'
+    ).fetchall()
+    conn.close()
+    return render_template('admin/dashboard.html', users=users)
+
+
+@app.route('/admin/toggle/<int:user_id>')
+@admin_required
+def admin_toggle(user_id):
+    if user_id == session.get('user_id'):
+        flash('Vous ne pouvez pas modifier votre propre role.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    conn = get_db()
+    user = conn.execute('SELECT id, is_admin FROM users WHERE id = ?', (user_id,)).fetchone()
+    if user:
+        new_val = 0 if user['is_admin'] else 1
+        conn.execute('UPDATE users SET is_admin = ? WHERE id = ?', (new_val, user_id))
+        conn.commit()
+        flash('Role mis a jour.', 'success')
+    conn.close()
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/delete/<int:user_id>')
+@admin_required
+def admin_delete(user_id):
+    if user_id == session.get('user_id'):
+        flash('Vous ne pouvez pas supprimer votre propre compte.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    conn = get_db()
+    conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    flash('Utilisateur supprime.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+# ---------------------------------------------------------------------------
+# Startup
+# ---------------------------------------------------------------------------
+init_db()
+load_model()
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)

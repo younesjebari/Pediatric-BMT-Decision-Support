@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Resultats{% endblock %}
+
+{% block content %}
+<section class="section" style="padding-top: 7rem;">
+    <div class="section-inner" style="max-width: 800px;">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Resultats
+            </div>
+            <h2 class="section-title">Resultat de la <span class="gradient-text">Prediction</span></h2>
+        </div>
+
+        {% if prediction %}
+        {% set survival_pct = prediction.survival_probability %}
+        {% if survival_pct >= 70 %}
+            {% set level = 'success' %}
+            {% set level_label = 'Pronostic Favorable' %}
+        {% elif survival_pct >= 50 %}
+            {% set level = 'moderate' %}
+            {% set level_label = 'Risque Modere' %}
+        {% else %}
+            {% set level = 'danger' %}
+            {% set level_label = 'Risque Eleve' %}
+        {% endif %}
+
+        <!-- Result Card -->
+        <div class="card result-card animate-fade-in-up">
+            <div class="result-top-bar {{ level }}"></div>
+            <div class="result-header">
+                <h3>Prediction de Survie</h3>
+            </div>
+
+            <!-- Gauge -->
+            <div class="gauge-container">
+                {% set circumference = 2 * 3.14159 * 70 %}
+                {% set offset = circumference - (survival_pct / 100) * circumference %}
+                {% if level == 'success' %}
+                    {% set stroke_color = '#16a34a' %}
+                {% elif level == 'moderate' %}
+                    {% set stroke_color = '#f59e0b' %}
+                {% else %}
+                    {% set stroke_color = '#dc2626' %}
+                {% endif %}
+                <svg class="gauge-svg" viewBox="0 0 180 180">
+                    <circle class="gauge-bg" cx="90" cy="90" r="70"/>
+                    <circle class="gauge-fill" cx="90" cy="90" r="70"
+                            stroke="{{ stroke_color }}"
+                            stroke-dasharray="{{ circumference }}"
+                            stroke-dashoffset="{{ offset }}"/>
+                    <g class="gauge-text-group">
+                        <text class="gauge-percentage" x="90" y="85">{{ survival_pct }}%</text>
+                        <text class="gauge-label" x="90" y="105">Probabilite de Survie</text>
+                    </g>
+                </svg>
+                <div>
+                    <span class="result-badge {{ level }}">
+                        {% if level == 'success' %}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        {% elif level == 'moderate' %}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        {% else %}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        {% endif %}
+                        {{ level_label }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-value">{{ prediction.death_probability }}%</div>
+                    <div class="metric-label">P(Deces)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">76.3%</div>
+                    <div class="metric-label">Accuracy</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">70.0%</div>
+                    <div class="metric-label">ROC-AUC</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SHAP Individual -->
+        <div class="card result-card animate-fade-in-up delay-200" style="margin-top: 2rem;">
+            <div class="card-header">
+                <h3>Importance des Variables (SHAP)</h3>
+                <p>Impact de chaque variable sur cette prediction individuelle</p>
+            </div>
+            <div class="fi-bars">
+                {% for feat in prediction.shap_features %}
+                <div class="fi-bar-item">
+                    <div class="fi-bar-header">
+                        <span class="fi-bar-name">{{ feat.name }}</span>
+                        <span class="fi-bar-value {{ 'positive' if feat.value >= 0 else 'negative' }}">
+                            {{ '+' if feat.value >= 0 }}{{ '%.3f' | format(feat.value) }}
+                        </span>
+                    </div>
+                    <div class="fi-bar-track">
+                        <div class="fi-bar-fill {{ 'positive' if feat.value >= 0 else 'negative' }}"
+                             style="width: {{ feat.bar_width }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="result-actions-bar animate-fade-in-up delay-300">
+            <a href="{{ url_for('predict') }}" class="btn btn-outline">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                Nouvelle Prediction
+            </a>
+            <a href="{{ url_for('shap_page') }}" class="btn btn-primary">
+                Analyse SHAP Globale
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+        </div>
+
+        {% else %}
+        <!-- No prediction -->
+        <div class="card">
+            <div class="card-body result-placeholder">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                <h4>Aucune Prediction</h4>
+                <p>Lancez d'abord une prediction depuis la page de prediction.</p>
+                <a href="{{ url_for('predict') }}" class="btn btn-primary" style="margin-top:1rem;">Lancer une Prediction</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

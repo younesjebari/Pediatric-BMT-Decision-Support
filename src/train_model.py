@@ -87,7 +87,7 @@ def train():
     
     print("="*70)
     print(f"🏆 GAGNANT : {best_model.__class__.__name__}")
-    print(f"Ce modèle est sauvegardé pour l'application Streamlit.")
+    print(f"Ce modèle est sauvegardé pour l'application.")
     print("="*70 + "\n")
 
 if __name__ == "__main__":
