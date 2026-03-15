@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}Prediction{% endblock %}
+
+{% block content %}
+<section class="section" style="padding-top: 7rem;">
+    <div class="section-inner" style="max-width: 800px;">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Prediction
+            </div>
+            <h2 class="section-title">Analyse de <span class="gradient-text">Prediction</span></h2>
+            <p class="section-desc">Suivez les etapes pour entrer les donnees cliniques du patient.</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="wizard-progress">
+            <div class="wizard-progress-bar" id="wizardBar" style="width: 25%"></div>
+            <div class="wizard-steps">
+                <div class="wizard-step active" data-step="1">
+                    <div class="wizard-step-dot">1</div>
+                    <span>Patient</span>
+                </div>
+                <div class="wizard-step" data-step="2">
+                    <div class="wizard-step-dot">2</div>
+                    <span>Donneur</span>
+                </div>
+                <div class="wizard-step" data-step="3">
+                    <div class="wizard-step-dot">3</div>
+                    <span>Greffe</span>
+                </div>
+                <div class="wizard-step" data-step="4">
+                    <div class="wizard-step-dot">4</div>
+                    <span>Recap</span>
+                </div>
+            </div>
+        </div>
+
+        <form id="predictionForm" method="POST" action="{{ url_for('predict') }}">
+            <!-- Step 1: Patient -->
+            <div class="wizard-panel active" id="step-1">
+                <div class="card animate-fade-in-up">
+                    <div class="card-header">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: .5rem;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            Informations du Patient
+                        </h3>
+                        <p>Etape 1 sur 4 - Donnees cliniques du receveur</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <div class="slider-container">
+                                <div class="slider-header">
+                                    <label class="form-label">Age du Receveur <span>(annees)</span></label>
+                                    <span class="slider-value" id="recipientage-val">{{ form_data.Recipientage | default(9.6) }}</span>
+                                </div>
+                                <input type="range" name="Recipientage" min="0.5" max="20" step="0.1"
+                                       value="{{ form_data.Recipientage | default(9.6) }}"
+                                       oninput="updateSlider(this, 'recipientage-val')">
+                                <div class="slider-labels"><span>0.5 ans</span><span>20 ans</span></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="slider-container">
+                                <div class="slider-header">
+                                    <label class="form-label">Masse Corporelle <span>(kg)</span></label>
+                                    <span class="slider-value" id="rbodymass-val">{{ form_data.Rbodymass | default(33.0) }}</span>
+                                </div>
+                                <input type="range" name="Rbodymass" min="5" max="110" step="0.5"
+                                       value="{{ form_data.Rbodymass | default(33.0) }}"
+                                       oninput="updateSlider(this, 'rbodymass-val')">
+                                <div class="slider-labels"><span>5 kg</span><span>110 kg</span></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Type de Maladie</label>
+                            <select name="Disease" class="form-select">
+                                <option value="0" {{ 'selected' if form_data.Disease|default('0')|string == '0' }}>ALL - Leucemie Lymphoblastique Aigue</option>
+                                <option value="1" {{ 'selected' if form_data.Disease|default('0')|string == '1' }}>AML - Leucemie Myeloide Aigue</option>
+                                <option value="2" {{ 'selected' if form_data.Disease|default('0')|string == '2' }}>Chronique (CML)</option>
+                                <option value="3" {{ 'selected' if form_data.Disease|default('0')|string == '3' }}>Lymphome</option>
+                                <option value="4" {{ 'selected' if form_data.Disease|default('0')|string == '4' }}>Non-Malignant</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Groupe de Risque</label>
+                            <select name="Riskgroup" class="form-select">
+                                <option value="0" {{ 'selected' if form_data.Riskgroup|default('0')|string == '0' }}>Faible Risque</option>
+                                <option value="1" {{ 'selected' if form_data.Riskgroup|default('0')|string == '1' }}>Haut Risque</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Rechute (Relapse)</label>
+                            <select name="Relapse" class="form-select">
+                                <option value="0" {{ 'selected' if form_data.Relapse|default('0')|string == '0' }}>Non</option>
+                                <option value="1" {{ 'selected' if form_data.Relapse|default('0')|string == '1' }}>Oui</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="wizard-nav">
+                    <div></div>
+                    <button type="button" class="btn btn-primary" onclick="wizardNext()">
+                        Suivant
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Donor -->
+            <div class="wizard-panel" id="step-2">
+                <div class="card animate-fade-in-up">
+                    <div class="card-header">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: .5rem;"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                            Informations du Donneur
+                        </h3>
+                        <p>Etape 2 sur 4 - Donnees du donneur et compatibilite</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <div class="slider-container">
+                                <div class="slider-header">
+                                    <label class="form-label">Age du Donneur <span>(annees)</span></label>
+                                    <span class="slider-value" id="donorage-val">{{ form_data.Donorage | default(33.5) }}</span>
+                                </div>
+                                <input type="range" name="Donorage" min="18" max="56" step="0.1"
+                                       value="{{ form_data.Donorage | default(33.5) }}"
+                                       oninput="updateSlider(this, 'donorage-val')">
+                                <div class="slider-labels"><span>18 ans</span><span>56 ans</span></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Compatibilite HLA</label>
+                            <select name="HLAmatch" class="form-select">
+                                <option value="0" {{ 'selected' if form_data.HLAmatch|default('0')|string == '0' }}>10/10 - Compatibilite Parfaite</option>
+                                <option value="1" {{ 'selected' if form_data.HLAmatch|default('0')|string == '1' }}>9/10 - Mismatch Leger</option>
+                                <option value="2" {{ 'selected' if form_data.HLAmatch|default('0')|string == '2' }}>8/10 - Mismatch Modere</option>
+                                <option value="3" {{ 'selected' if form_data.HLAmatch|default('0')|string == '3' }}>7/10 - Mismatch Important</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">GvHD Chronique Extensive</label>
+                            <select name="extcGvHD" class="form-select">
+                                <option value="0" {{ 'selected' if form_data.extcGvHD|default('0')|string == '0' }}>Non</option>
+                                <option value="1" {{ 'selected' if form_data.extcGvHD|default('0')|string == '1' }}>Oui</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="wizard-nav">
+                    <button type="button" class="btn btn-outline" onclick="wizardPrev()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        Precedent
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="wizardNext()">
+                        Suivant
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Transplant -->
+            <div class="wizard-panel" id="step-3">
+                <div class="card animate-fade-in-up">
+                    <div class="card-header">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: .5rem;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            Informations de la Greffe
+                        </h3>
+                        <p>Etape 3 sur 4 - Parametres de la transplantation</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <div class="slider-container">
+                                <div class="slider-header">
+                                    <label class="form-label">Dose CD34+ <span>(x10^6/kg)</span></label>
+                                    <span class="slider-value" id="cd34-val">{{ form_data.CD34kgx10d6 | default(9.7) }}</span>
+                                </div>
+                                <input type="range" name="CD34kgx10d6" min="0.5" max="50" step="0.1"
+                                       value="{{ form_data.CD34kgx10d6 | default(9.7) }}"
+                                       oninput="updateSlider(this, 'cd34-val')">
+                                <div class="slider-labels"><span>0.5</span><span>50</span></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="slider-container">
+                                <div class="slider-header">
+                                    <label class="form-label">Dose CD3+ <span>(x10^8/kg)</span></label>
+                                    <span class="slider-value" id="cd3-val">{{ form_data.CD3dkgx10d8 | default(4.3) }}</span>
+                                </div>
+                                <input type="range" name="CD3dkgx10d8" min="0" max="21" step="0.1"
+                                       value="{{ form_data.CD3dkgx10d8 | default(4.3) }}"
+                                       oninput="updateSlider(this, 'cd3-val')">
+                                <div class="slider-labels"><span>0</span><span>21</span></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="slider-container">
+                                <div class="slider-header">
+                                    <label class="form-label">Recuperation Plaquettes <span>(jours)</span></label>
+                                    <span class="slider-value" id="plt-val">{{ form_data.PLTrecovery | default(21) }}</span>
+                                </div>
+                                <input type="range" name="PLTrecovery" min="1" max="100" step="1"
+                                       value="{{ form_data.PLTrecovery | default(21) }}"
+                                       oninput="updateSlider(this, 'plt-val')">
+                                <div class="slider-labels"><span>1 jour</span><span>100 jours</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="wizard-nav">
+                    <button type="button" class="btn btn-outline" onclick="wizardPrev()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        Precedent
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="wizardNext()">
+                        Suivant
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Summary -->
+            <div class="wizard-panel" id="step-4">
+                <div class="card animate-fade-in-up">
+                    <div class="card-header">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: .5rem;"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            Recapitulatif
+                        </h3>
+                        <p>Etape 4 sur 4 - Verifiez les donnees avant de lancer la prediction</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="recap-grid" id="recapGrid">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="wizard-nav">
+                    <button type="button" class="btn btn-outline" onclick="wizardPrev()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        Precedent
+                    </button>
+                    <button type="submit" class="btn btn-gradient" id="submitBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Generer la Prediction
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ===== Wizard Logic =====
+let currentStep = 1;
+const totalSteps = 4;
+
+function wizardNext() {
+    if (currentStep < totalSteps) {
+        setStep(currentStep + 1);
+    }
+}
+
+function wizardPrev() {
+    if (currentStep > 1) {
+        setStep(currentStep - 1);
+    }
+}
+
+function setStep(step) {
+    // Hide current
+    document.getElementById('step-' + currentStep).classList.remove('active');
+    document.querySelectorAll('.wizard-step')[currentStep - 1].classList.remove('active');
+
+    // Mark previous steps as completed
+    for (let i = 1; i < step; i++) {
+        document.querySelectorAll('.wizard-step')[i - 1].classList.add('completed');
+    }
+    // Remove completed from future steps
+    for (let i = step; i <= totalSteps; i++) {
+        document.querySelectorAll('.wizard-step')[i - 1].classList.remove('completed');
+    }
+
+    currentStep = step;
+
+    // Show new step
+    document.getElementById('step-' + currentStep).classList.add('active');
+    document.querySelectorAll('.wizard-step')[currentStep - 1].classList.add('active');
+
+    // Update progress bar
+    document.getElementById('wizardBar').style.width = (currentStep / totalSteps * 100) + '%';
+
+    // If summary step, populate recap
+    if (currentStep === 4) {
+        populateRecap();
+    }
+
+    // Scroll to top of form
+    window.scrollTo({ top: document.querySelector('.wizard-progress').offsetTop - 100, behavior: 'smooth' });
+}
+
+const fieldLabels = {
+    'Recipientage': 'Age du Receveur',
+    'Rbodymass': 'Masse Corporelle',
+    'Disease': 'Type de Maladie',
+    'Riskgroup': 'Groupe de Risque',
+    'Relapse': 'Rechute',
+    'Donorage': 'Age du Donneur',
+    'HLAmatch': 'Compatibilite HLA',
+    'extcGvHD': 'GvHD Chronique',
+    'CD34kgx10d6': 'Dose CD34+',
+    'CD3dkgx10d8': 'Dose CD3+',
+    'PLTrecovery': 'Recup. Plaquettes'
+};
+
+const fieldUnits = {
+    'Recipientage': ' ans',
+    'Rbodymass': ' kg',
+    'Donorage': ' ans',
+    'CD34kgx10d6': ' x10^6/kg',
+    'CD3dkgx10d8': ' x10^8/kg',
+    'PLTrecovery': ' jours'
+};
+
+const selectLabels = {
+    'Disease': {'0': 'ALL', '1': 'AML', '2': 'Chronique', '3': 'Lymphome', '4': 'Non-Malignant'},
+    'Riskgroup': {'0': 'Faible Risque', '1': 'Haut Risque'},
+    'Relapse': {'0': 'Non', '1': 'Oui'},
+    'HLAmatch': {'0': '10/10 Parfaite', '1': '9/10', '2': '8/10', '3': '7/10'},
+    'extcGvHD': {'0': 'Non', '1': 'Oui'}
+};
+
+function populateRecap() {
+    const grid = document.getElementById('recapGrid');
+    const form = document.getElementById('predictionForm');
+    let html = '';
+
+    const fieldOrder = ['Recipientage', 'Rbodymass', 'Disease', 'Riskgroup', 'Relapse',
+                        'Donorage', 'HLAmatch', 'extcGvHD', 'CD34kgx10d6', 'CD3dkgx10d8', 'PLTrecovery'];
+
+    fieldOrder.forEach(function(name) {
+        const el = form.elements[name];
+        let val = el.value;
+        let displayVal = val;
+
+        if (selectLabels[name]) {
+            displayVal = selectLabels[name][val] || val;
+        } else {
+            displayVal = parseFloat(val) % 1 === 0 ? parseInt(val) : parseFloat(val).toFixed(1);
+            displayVal += (fieldUnits[name] || '');
+        }
+
+        html += '<div class="recap-item">';
+        html += '<span class="recap-label">' + fieldLabels[name] + '</span>';
+        html += '<span class="recap-value">' + displayVal + '</span>';
+        html += '</div>';
+    });
+
+    grid.innerHTML = html;
+}
+
+// Form submit loading
+document.getElementById('predictionForm').addEventListener('submit', function() {
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Analyse en cours...';
+});
+</script>
+{% endblock %}

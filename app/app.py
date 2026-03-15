@@ -1,86 +1,391 @@
-import streamlit as st
+import os
+import sys
+import sqlite3
+import functools
+import numpy as np
+import pandas as pd
+import joblib
+import shap
+from flask import (Flask, render_template, request, flash,
+                   redirect, url_for, session)
+from werkzeug.security import generate_password_hash, check_password_hash
 
-st.title(" Prédiction Greffe de Moelle Osseuse")
+# Add src/ to path for data_processing imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-st.subheader(" Données du Patient")
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'medpredict-bmt-2026')
 
-col1, col2 = st.columns(2)
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
 
-with col1:
-    st.markdown("### Receveur")
-    recipientage = st.number_input(
-        "Âge du receveur (ans)",
-        min_value=0.0, max_value=25.0,
-        value=8.0, step=0.5
-    )
-    rbodymass = st.number_input(
-        "Masse corporelle (kg)",
-        min_value=5.0, max_value=100.0,
-        value=25.0, step=0.5
-    )
-    disease = st.selectbox(
-        "Type de maladie",
-        options=['ALL', 'AML', 'chronic', 
-                 'nonmalignant', 'lymphoma']
-    )
-    relapse = st.selectbox(
-        "Rechute ?",
-        options=['No', 'Yes']
-    )
-    ext_cgvhd = st.selectbox(
-        "GvHD chronique étendue ?",
-        options=['No', 'Yes']
-    )
 
-with col2:
-    st.markdown("###  Traitement")
-    cd34 = st.number_input(
-        "CD34+ dose (×10⁶/kg)",
-        min_value=0.0, max_value=30.0,
-        value=5.0, step=0.1
-    )
-    cd3 = st.number_input(
-        "CD3+ dose (×10⁸/kg)",
-        min_value=0.0, max_value=10.0,
-        value=2.0, step=0.1
-    )
-    donorage = st.number_input(
-        "Âge du donneur (ans)",
-        min_value=18.0, max_value=80.0,
-        value=35.0, step=1.0
-    )
-    hla_match = st.selectbox(
-        "Compatibilité HLA",
-        options=['10/10', '9/10', '8/10', '7/10']
-    )
-    risk_group = st.selectbox(
-        "Groupe de risque",
-        options=['low risk', 'high risk']
-    )
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-st.markdown("###  Récupération")
-plt_recovery = st.selectbox(
-    "Récupération plaquettes ?",
-    options=['Yes', 'No']
-)
 
-# Bouton prédiction
-if st.button(" ANALYSER", use_container_width=True):
-    
-    # Créer le dictionnaire des features
-    input_data = {
-        'CD3dkgx10d8':  cd3,
-        'CD34kgx10d6':  cd34,
-        'Rbodymass':    rbodymass,
-        'Recipientage': recipientage,
-        'PLTrecovery':  1 if plt_recovery == 'Yes' else 0,
-        'Disease':      disease,
-        'Relapse':      1 if relapse == 'Yes' else 0,
-        'extcGvHD':     1 if ext_cgvhd == 'Yes' else 0,
-        'Donorage':     donorage,
-        'HLAmatch':     hla_match,
-        'Riskgroup':    risk_group,
-    }
-    
-    st.success("Données enregistrées ")
-    st.json(input_data)
+def init_db():
+    conn = get_db()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    # Migrate: add is_admin column if missing (existing DB)
+    cursor = conn.execute("PRAGMA table_info(users)")
+    columns = [row['name'] for row in cursor.fetchall()]
+    if 'is_admin' not in columns:
+        conn.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0')
+    conn.commit()
+    # Create default admin account if none exists
+    admin = conn.execute('SELECT id FROM users WHERE is_admin = 1').fetchone()
+    if not admin:
+        conn.execute(
+            'INSERT OR IGNORE INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)',
+            ('admin', generate_password_hash('admin'))
+        )
+        conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Auth decorator
+# ---------------------------------------------------------------------------
+def login_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Veuillez vous connecter pour acceder a cette page.', 'info')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Veuillez vous connecter pour acceder a cette page.', 'info')
+            return redirect(url_for('login'))
+        if not session.get('is_admin'):
+            flash('Acces reserve aux administrateurs.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ---------------------------------------------------------------------------
+# Model / SHAP
+# ---------------------------------------------------------------------------
+FEATURE_COLUMNS = [
+    'CD3dkgx10d8', 'CD34kgx10d6', 'Rbodymass', 'Recipientage',
+    'PLTrecovery', 'Disease', 'Relapse', 'extcGvHD',
+    'Donorage', 'HLAmatch', 'Riskgroup'
+]
+
+FEATURE_LABELS = {
+    'CD3dkgx10d8': 'Dose CD3+',
+    'CD34kgx10d6': 'Dose CD34+',
+    'Rbodymass': 'Masse Corporelle',
+    'Recipientage': 'Age Receveur',
+    'PLTrecovery': 'Recup. Plaquettes',
+    'Disease': 'Type de Maladie',
+    'Relapse': 'Rechute',
+    'extcGvHD': 'GvHD Chronique',
+    'Donorage': 'Age Donneur',
+    'HLAmatch': 'Compatibilite HLA',
+    'Riskgroup': 'Groupe de Risque'
+}
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'final_model.joblib')
+model = None
+explainer = None
+
+
+def load_model():
+    global model, explainer
+    try:
+        model = joblib.load(MODEL_PATH)
+        explainer = shap.TreeExplainer(model)
+        print(f"Model loaded: {type(model).__name__}")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        model = None
+        explainer = None
+
+
+def compute_shap_summary():
+    try:
+        from scipy.io import arff
+        from data_processing import (select_important_features,
+                                     handle_missing_values, handle_outliers)
+
+        data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'bone-marrow.arff')
+        raw_data, _ = arff.loadarff(data_path)
+        df = pd.DataFrame(raw_data)
+        for col in df.select_dtypes([object]):
+            df[col] = df[col].str.decode('utf-8')
+
+        df = select_important_features(df)
+        df = handle_missing_values(df)
+        df = handle_outliers(df)
+
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].astype('category').cat.codes
+
+        X = df[FEATURE_COLUMNS]
+        shap_values = explainer.shap_values(X)
+
+        mean_shap = np.mean(shap_values, axis=0)
+        abs_mean_shap = np.mean(np.abs(shap_values), axis=0)
+        max_abs = max(abs(v) for v in mean_shap) if len(mean_shap) > 0 else 1
+
+        features = []
+        for i, col in enumerate(FEATURE_COLUMNS):
+            features.append({
+                'name': FEATURE_LABELS.get(col, col),
+                'feature_key': col,
+                'value': float(mean_shap[i]),
+                'abs_value': float(abs_mean_shap[i]),
+                'bar_width': min(50, abs(float(mean_shap[i])) / max_abs * 50) if max_abs > 0 else 0
+            })
+        features.sort(key=lambda x: x['abs_value'], reverse=True)
+        return features
+    except Exception as e:
+        print(f"Error computing SHAP summary: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Auth routes
+# ---------------------------------------------------------------------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get('user_id'):
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+
+        if not username or not password:
+            flash('Veuillez remplir tous les champs.', 'error')
+            return render_template('auth/login.html')
+
+        conn = get_db()
+        user = conn.execute('SELECT * FROM users WHERE username = ?',
+                            (username,)).fetchone()
+        conn.close()
+
+        if user and check_password_hash(user['password_hash'], password):
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['is_admin'] = bool(user['is_admin'])
+            flash(f'Bienvenue, {username} !', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Nom d\'utilisateur ou mot de passe incorrect.', 'error')
+
+    return render_template('auth/login.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if session.get('user_id'):
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        password_confirm = request.form.get('password_confirm', '')
+
+        if not username or not password:
+            flash('Veuillez remplir tous les champs.', 'error')
+            return render_template('auth/register.html')
+
+        if len(username) < 3:
+            flash('Le nom d\'utilisateur doit contenir au moins 3 caracteres.', 'error')
+            return render_template('auth/register.html')
+
+        if len(password) < 4:
+            flash('Le mot de passe doit contenir au moins 4 caracteres.', 'error')
+            return render_template('auth/register.html')
+
+        if password != password_confirm:
+            flash('Les mots de passe ne correspondent pas.', 'error')
+            return render_template('auth/register.html')
+
+        conn = get_db()
+        try:
+            conn.execute(
+                'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+                (username, generate_password_hash(password))
+            )
+            conn.commit()
+            flash('Compte cree avec succes ! Connectez-vous.', 'success')
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash('Ce nom d\'utilisateur existe deja.', 'error')
+        finally:
+            conn.close()
+
+    return render_template('auth/register.html')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Vous avez ete deconnecte.', 'info')
+    return redirect(url_for('login'))
+
+
+# ---------------------------------------------------------------------------
+# App routes
+# ---------------------------------------------------------------------------
+@app.route('/')
+@login_required
+def index():
+    return render_template('home.html')
+
+
+@app.route('/predict', methods=['GET', 'POST'])
+@login_required
+def predict():
+    if request.method == 'GET':
+        form_data = session.get('form_data', {})
+        return render_template('predict.html', form_data=form_data)
+
+    if model is None or explainer is None:
+        flash("Le modele n'est pas charge.", 'error')
+        return redirect(url_for('predict'))
+
+    try:
+        form_data = {
+            'Recipientage': float(request.form.get('Recipientage', 9.6)),
+            'Rbodymass': float(request.form.get('Rbodymass', 33.0)),
+            'Disease': int(request.form.get('Disease', 0)),
+            'Riskgroup': int(request.form.get('Riskgroup', 0)),
+            'Relapse': int(request.form.get('Relapse', 0)),
+            'Donorage': float(request.form.get('Donorage', 33.5)),
+            'HLAmatch': int(request.form.get('HLAmatch', 0)),
+            'extcGvHD': int(request.form.get('extcGvHD', 0)),
+            'CD34kgx10d6': float(request.form.get('CD34kgx10d6', 9.7)),
+            'CD3dkgx10d8': float(request.form.get('CD3dkgx10d8', 4.3)),
+            'PLTrecovery': float(request.form.get('PLTrecovery', 21)),
+        }
+
+        feature_values = [form_data[col] for col in FEATURE_COLUMNS]
+        X_input = pd.DataFrame([feature_values], columns=FEATURE_COLUMNS)
+
+        proba = model.predict_proba(X_input)[0]
+        survival_prob = float(round(float(proba[0]) * 100, 1))
+        death_prob = float(round(float(proba[1]) * 100, 1))
+
+        shap_values = explainer.shap_values(X_input)
+        individual_shap = shap_values[0]
+        max_abs_shap = float(max(abs(float(v)) for v in individual_shap)) if len(individual_shap) > 0 else 1.0
+
+        shap_features = []
+        for i, col in enumerate(FEATURE_COLUMNS):
+            sv = float(individual_shap[i])
+            shap_features.append({
+                'name': FEATURE_LABELS.get(col, col),
+                'feature_key': col,
+                'value': sv,
+                'bar_width': min(100.0, abs(sv) / max_abs_shap * 80) if max_abs_shap > 0 else 0.0
+            })
+        shap_features.sort(key=lambda x: abs(x['value']), reverse=True)
+
+        prediction = {
+            'survival_probability': survival_prob,
+            'death_probability': death_prob,
+            'shap_features': shap_features,
+        }
+
+        session['prediction'] = prediction
+        session['form_data'] = form_data
+
+        return redirect(url_for('results'))
+
+    except Exception as e:
+        flash(f'Erreur lors de la prediction : {str(e)}', 'error')
+        return redirect(url_for('predict'))
+
+
+@app.route('/results')
+@login_required
+def results():
+    prediction = session.get('prediction')
+    return render_template('results.html', prediction=prediction)
+
+
+@app.route('/shap')
+@login_required
+def shap_page():
+    shap_summary = None
+    if explainer is not None:
+        shap_summary = compute_shap_summary()
+    return render_template('shap.html', shap_summary=shap_summary)
+
+
+# ---------------------------------------------------------------------------
+# Admin routes
+# ---------------------------------------------------------------------------
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    conn = get_db()
+    users = conn.execute(
+        'SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC'
+    ).fetchall()
+    conn.close()
+    return render_template('admin/dashboard.html', users=users)
+
+
+@app.route('/admin/toggle/<int:user_id>')
+@admin_required
+def admin_toggle(user_id):
+    if user_id == session.get('user_id'):
+        flash('Vous ne pouvez pas modifier votre propre role.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    conn = get_db()
+    user = conn.execute('SELECT id, is_admin FROM users WHERE id = ?', (user_id,)).fetchone()
+    if user:
+        new_val = 0 if user['is_admin'] else 1
+        conn.execute('UPDATE users SET is_admin = ? WHERE id = ?', (new_val, user_id))
+        conn.commit()
+        flash('Role mis a jour.', 'success')
+    conn.close()
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/delete/<int:user_id>')
+@admin_required
+def admin_delete(user_id):
+    if user_id == session.get('user_id'):
+        flash('Vous ne pouvez pas supprimer votre propre compte.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    conn = get_db()
+    conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    flash('Utilisateur supprime.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+# ---------------------------------------------------------------------------
+# Startup
+# ---------------------------------------------------------------------------
+init_db()
+load_model()
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)

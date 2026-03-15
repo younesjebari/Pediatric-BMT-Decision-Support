@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Administration{% endblock %}
+
+{% block content %}
+<section class="section" style="padding-top: 7rem;">
+    <div class="section-inner" style="max-width: 900px;">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Administration
+            </div>
+            <h2 class="section-title">Gestion des <span class="gradient-text">Utilisateurs</span></h2>
+            <p class="section-desc">Gerez les comptes et les roles des utilisateurs de MedPredict.</p>
+        </div>
+
+        <div class="card animate-fade-in-up">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h3>Utilisateurs ({{ users|length }})</h3>
+                    <p>Liste de tous les comptes enregistres</p>
+                </div>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom d'utilisateur</th>
+                            <th>Role</th>
+                            <th>Date de creation</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td><span class="admin-id">#{{ user.id }}</span></td>
+                            <td>
+                                <strong>{{ user.username }}</strong>
+                                {% if user.id == session.get('user_id') %}
+                                <span class="admin-you">(vous)</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_admin %}
+                                <span class="role-badge role-admin">Admin</span>
+                                {% else %}
+                                <span class="role-badge role-user">Utilisateur</span>
+                                {% endif %}
+                            </td>
+                            <td class="admin-date">{{ user.created_at }}</td>
+                            <td>
+                                {% if user.id != session.get('user_id') %}
+                                <div class="admin-actions">
+                                    <a href="{{ url_for('admin_toggle', user_id=user.id) }}" class="btn-admin btn-admin-toggle" title="Changer le role">
+                                        {% if user.is_admin %}
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                        Retirer admin
+                                        {% else %}
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                        Promouvoir admin
+                                        {% endif %}
+                                    </a>
+                                    <a href="{{ url_for('admin_delete', user_id=user.id) }}" class="btn-admin btn-admin-delete" title="Supprimer" onclick="return confirm('Supprimer l\'utilisateur {{ user.username }} ?')">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                        Supprimer
+                                    </a>
+                                </div>
+                                {% else %}
+                                <span class="admin-date">--</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

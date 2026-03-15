@@ -1,86 +1,139 @@
 # Pediatric-BMT-Decision-Support
-A machine learning application designed to assist physicians in predicting the success rate of pediatric bone marrow transplants using explainable AI (SHAP).
-## Optimisation Mémoire
 
-La fonction `optimize_memory(df)` dans `src/data_processing.py`
-réduit l'usage RAM en convertissant les types de données :
+Outil d'aide a la decision medicale base sur le Machine Learning pour predire les resultats des greffes de moelle osseuse pediatriques. Le projet combine un modele XGBoost avec l'explicabilite SHAP et une interface web Flask.
 
-| Type original | Type optimisé | Réduction |
-|---------------|---------------|-----------|
-| float64       | float32       | ~50%      |
-| int64         | int32         | ~50%      |
+---
 
-### Résultats mesurés sur le dataset BMT :
+## Structure du Projet
 
-| | Mémoire |
-|-|---------|
-| Avant optimisation | 0.12 MB |
-| Après optimisation | 0.06 MB |
-| **Réduction totale** | **~50%** |
+```
+.
+├── app/
+│   ├── app.py                  # Backend Flask (auth, prediction, SHAP, admin)
+│   ├── static/
+│   │   ├── css/style.css       # Theme medical, animations, responsive
+│   │   └── js/main.js          # Interactions cote client
+│   └── templates/
+│       ├── base.html           # Template de base (navbar, footer)
+│       ├── auth/
+│       │   ├── login.html      # Page de connexion
+│       │   └── register.html   # Page d'inscription
+│       ├── admin/
+│       │   └── dashboard.html  # Gestion des utilisateurs (admin)
+│       ├── home.html           # Accueil (hero, features)
+│       ├── predict.html        # Wizard de prediction (4 etapes)
+│       ├── results.html        # Resultats + SHAP individuel
+│       └── shap.html           # Analyse SHAP globale
+├── src/
+│   ├── data_processing.py      # Preprocessing (selection, imputation, outliers)
+│   ├── train_model.py          # Benchmark 4 modeles + entrainement
+│   └── evaluate_model.py       # Evaluation + analyse SHAP globale
+├── data/
+│   └── bone-marrow.arff        # Dataset (187 patients, 37 attributs)
+├── models/
+│   └── final_model.joblib      # Modele XGBoost entraine
+├── tests/
+│   ├── test_data_processing.py # Tests du preprocessing
+│   ├── test_train_model.py     # Tests du pipeline d'entrainement
+│   └── test_evaluate_model.py  # Tests de l'evaluation et SHAP
+├── notebooks/
+│   └── eda.ipynb               # Analyse exploratoire
+├── .github/workflows/
+│   └── tests.yml               # CI GitHub Actions
+├── Dockerfile
+├── requirements.txt
+└── README.md
+```
 
-> Preuve reproductible : lancer `notebooks/eda.ipynb` section 6.
-#  support à la décision pour la greffe pédiatrique (BMT)
+---
 
-Ce projet implémente une solution de Machine Learning pour prédire la survie des patients pédiatriques après une greffe de moelle osseuse.
+## Analyse Exploratoire des Donnees (EDA)
 
-##  Performance du Modèle Final (Random Forest)
-Le modèle sélectionné offre les performances suivantes sur les cas critiques :
-- **Rappel (Recall) : 81.0%** (Capacité à détecter les patients à haut risque)
-- **Précision : 70.8%**
-- **Score ROC-AUC : 71.0%**
+- **Tests statistiques :** Mann-Whitney U pour identifier les variables a pouvoir predictif reel (p < 0.05).
+  - `Recipientage` (p=0.0053) et `CD34kgx10d6` (p=0.0074) sont les biomarqueurs les plus critiques.
+- **Analyse de correlation (Spearman) :** Multicolinearite de 85% entre `Rbodymass` et `Recipientage`.
+- **Anti-fuite :** Exclusion de `survival_time` (connue uniquement apres l'issue de la greffe).
 
-##  Analyse et Explicabilité Médicale 
+## Preprocessing et Optimisation Memoire
 
-En tant que responsable de l'explicabilité, j'ai intégré la librairie SHAP pour garantir que chaque prédiction du modèle puisse être interprétée et validée par un clinicien.
+- **Selection de 11 variables** parmi 37 attributs (p-value < 0.05).
+- **Downcasting :** float64 vers float32, int64 vers int32 -- reduction de ~50% de la RAM.
+- **Imputation :** Valeurs manquantes remplacees par la mediane.
+- **Outliers :** Detection et traitement via IQR.
 
-### 1. Interprétation Globale (Summary Plot)
-L'analyse SHAP sur l'ensemble du dataset a permis d'identifier les biomarqueurs et facteurs cliniques les plus influents pour la survie post-greffe :
--**Dose de CD34+ (×10⁶/kg) :** Le facteur le plus déterminant. Une dose élevée est systématiquement associée à une augmentation des chances de succès de la prise de greffe.
--**Âge du Donneur :** On observe qu'un donneur plus jeune tend à améliorer les scores de survie à long terme.
--**Compatibilité HLA :** Les disparités (mismatch) impactent négativement la prédiction, alertant le médecin sur des risques potentiels de complications.
+## Entrainement (Benchmark)
 
-### 2. Transparence Clinique
-Chaque prédiction générée par l'interface Streamlit est accompagnée d'une visualisation explicative. Cela permet au médecin :
--De comprendre quels facteurs spécifiques ont poussé le modèle vers une prédiction de "Succès" ou d'"Échec".
--De comparer la logique de l'IA avec son expertise médicale pour une décision finale plus sûre.
+Quatre modeles compares avec validation croisee :
 
-> **Livrable :** Le graphique d'explication globale est disponible dans l'interface finale et a été utilisé pour justifier la sélection du modèle Random Forest, dont les décisions restaient les plus cohérentes avec la littérature médicale actuelle.
+| Modele       | Accuracy | ROC-AUC | Rappel  |
+|:-------------|:---------|:--------|:--------|
+| RandomForest | 73.7%    | 71.8%   | 58.8%   |
+| **XGBoost**  | **76.3%**| **70.0%**| **64.7%**|
+| LightGBM     | 73.7%    | 71.1%   | 58.8%   |
+| SVM          | 68.4%    | 67.8%   | 47.1%   |
 
-##  Structure Technologique
-- **Traitement :** Nettoyage automatisé des données (imputation par médiane/mode).
-- **Équilibrage :** Technique SMOTE pour renforcer l'apprentissage sur les cas de décès.
-- **Modélisation :**Pipeline robuste utilisant `RandomForestClassifier`.
+Le modele XGBoost est retenu et sauvegarde dans `models/final_model.joblib`.
 
-## Utilisation de l'IA (Prompt Engineering)
+## Explicabilite (SHAP)
 
-<<<<<<< Updated upstream
-Dans le cadre de ce projet d'analyse de données médicales, notre premier objectif technique était de mettre en place un flux de travail collaboratif solide et de maîtriser les commandes Git/GitHub (Push, Pull, gestion des branches).
+Chaque prediction est accompagnee d'une analyse SHAP individuelle montrant l'impact de chaque variable clinique sur le pronostic. Une analyse SHAP globale est aussi disponible sur la page dediee.
 
-Afin de disposer rapidement d'une base de code pertinente à nous partager et à fusionner, nous avons utilisé l'assistant IA **Gemini**. L'objectif n'était pas de faire écrire le projet par l'IA, mais de générer des squelettes de code pour nos différents modèles de Machine Learning (destinés à la prédiction de l'évolution des patients), nous permettant ainsi de nous concentrer sur la pratique de GitHub.
+## Interface Web (Flask)
 
-### Exemples de requêtes (Prompts) utilisées :
-* Génère un script Python clair utilisant scikit-learn pour entraîner un modèle de Random Forest. Le code doit inclure la séparation des données (train/test split) et être prêt à être poussé sur un repository.
-* Écris le code d'une régression logistique de base pour de la classification, avec l'affichage des métriques d'évaluation standard (accuracy, matrice de confusion).
-* Crée une structure de base pour une application Streamlit simple permettant d'afficher un DataFrame Pandas.
+L'application est decoupee en 4 pages avec un systeme d'authentification :
 
-### Méthodologie appliquée :
-1. **Génération :** Création des algorithmes de base via Gemini.
-2. **Répartition :** Chaque membre de l'équipe a pris en charge un modèle spécifique.
-3. **Collaboration :** Utilisation de notre repository GitHub pour créer des branches, faire nos *commits*, et fusionner le tout via des *Pull Requests*.
-4. **Adaptation :** Le code généré a ensuite été relu, débuggé humainement et adapté aux spécificités de notre jeu de données.
-=======
-Pour ré-entraîner le modèle avec de nouvelles données :
-```powershell
-.\.venv\Scripts\python.exe src/train_model.py
->>>>>>> Stashed changes
-## Résultats Tests Statistiques
+1. **Connexion / Inscription** -- comptes utilisateurs avec hash des mots de passe (werkzeug).
+2. **Accueil** -- presentation du projet, performances du modele, fonctionnalites.
+3. **Prediction** -- wizard en 4 etapes (Patient, Donneur, Greffe, Recapitulatif) puis affichage des resultats avec jauge de survie et barres SHAP.
+4. **Analyse SHAP** -- summary plot global et guide d'interpretation des 11 variables.
 
-Variables numériques significatives :
-- Rbodymass (p=0.0033)
-- CD3dkgx10d8 (p=0.0016)
-- CD34kgx10d6 (p=0.0070)
+Un compte **admin** est cree automatiquement au demarrage (`admin` / `admin`). L'admin peut gerer les utilisateurs (promouvoir, supprimer) depuis le panneau d'administration.
 
-Variables catégorielles significatives :
-- Disease (p=0.0185)
-- Relapse (p=0.0001)
-- extcGvHD (p=0.0000)
+## Tests (17 tests)
+
+```bash
+pytest tests/ -v
+```
+
+- `test_data_processing.py` : optimisation memoire, imputation.
+- `test_train_model.py` : pipeline 11 features, cible binaire, SMOTE, modele fonctionnel.
+- `test_evaluate_model.py` : accuracy et ROC-AUC > 60%, matrice de confusion, SHAP.
+
+---
+
+## Lancement
+
+### Localement
+
+```bash
+pip install -r requirements.txt
+python app/app.py
+```
+
+L'application est accessible sur `http://127.0.0.1:5000`.
+
+### Via Docker
+
+```bash
+docker build -t bmt-app .
+docker run -p 5000:5000 bmt-app
+```
+
+### Entrainement du modele
+
+```bash
+python3 src/data_processing.py
+python3 src/train_model.py
+python3 src/evaluate_model.py
+```
+
+---
+
+## Technologies
+
+- **ML :** XGBoost, scikit-learn, SHAP, imbalanced-learn (SMOTE)
+- **Web :** Flask, Jinja2, HTML/CSS/JS
+- **Data :** pandas, numpy, scipy
+- **Tests :** pytest
+- **CI/CD :** GitHub Actions
+- **Conteneurisation :** Docker

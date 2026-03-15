@@ -3,76 +3,92 @@ from scipy.io import arff
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
+from sklearn.svm import SVC
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, roc_auc_score, recall_score
 import joblib
 import os
 
+# Importation de tes outils de traitement
+from data_processing import select_important_features, handle_missing_values, handle_outliers, optimize_memory
+
 def train():
-    print("🚀 Démarrage de l'entraînement et de la comparaison des modèles...")
+    print("\n" + "="*70)
+    print("🚀 DÉMARRAGE DU BENCHMARK : 4 MODÈLES PRÉDICTIFS (BMT)")
+    print("="*70)
 
-    # 1. Chargement et Nettoyage
-    raw_data, _ = arff.loadarff('data/bone-marrow.arff')
-    df = pd.DataFrame(raw_data)
+    # 1. Chargement et Décodage
+    try:
+        raw_data, _ = arff.loadarff('data/bone-marrow.arff')
+        df = pd.DataFrame(raw_data)
+        for col in df.select_dtypes([object]):
+            df[col] = df[col].str.decode('utf-8')
+    except FileNotFoundError:
+        print("❌ Erreur : Le fichier 'data/bone-marrow.arff' est introuvable.")
+        return
 
-    # Décodage des chaînes de caractères (b'string' -> 'string')
-    for col in df.select_dtypes([object]):
-        df[col] = df[col].str.decode('utf-8')
-
-    # --- LA GRANDE CORRECTION EST ICI ---
-    # On liste nos 6 variables pré-opératoires validées par les statistiques
-    features = ['Recipientage', 'Rbodymass', 'Disease', 'Relapse', 'CD34kgx10d6', 'CD3dkgx10d8']
-
-    # On nettoie les valeurs manquantes (l'IA n'aime pas les cases vides)
-    for col in ['Recipientage', 'Rbodymass', 'CD34kgx10d6', 'CD3dkgx10d8']:
-        df[col] = df[col].fillna(df[col].median())
-
-    # Encodage des variables catégorielles (Disease, Relapse) en nombres (0, 1, 2...)
-    for col in ['Disease', 'Relapse']:
+    # 2. Pipeline de Traitement (Utilisation des fonctions de data_processing.py)
+    # On utilise ta logique centralisée pour garantir la propreté des données
+    df = select_important_features(df)
+    df = handle_missing_values(df)
+    df = handle_outliers(df)
+    
+    # Encodage spécifique pour les modèles (catégories -> codes numériques)
+    for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].astype('category').cat.codes
 
-    # 2. Séparation de l'énoncé (X) et du corrigé (y)
-    X = df[features]  # X ne contient QUE les 6 colonnes d'indices
-    
-    # y contient UNIQUEMENT la cible (on s'assure que ce sont bien des entiers 0 ou 1)
-    y = pd.to_numeric(df['survival_status'], errors='coerce').fillna(0).astype(int)
+    # 3. Séparation X et y
+    X = df.drop(columns=['survival_status'])
+    y = pd.to_numeric(df['survival_status']).astype(int)
 
-    # 3. Séparation Entraînement / Test (80% pour apprendre, 20% pour vérifier)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # 4. Split et Équilibrage (SMOTE)
+    # On stratifie pour garder la même proportion de survie dans les deux sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-    # 4. Équilibrage des classes (SMOTE) sur les données d'entraînement
-    # k_neighbors=1 est utilisé car nous avons un petit jeu de données
+    # SMOTE aide à compenser le manque de données sur les cas de décès
     smote = SMOTE(random_state=42, k_neighbors=1)
     X_res, y_res = smote.fit_resample(X_train, y_train)
 
-    # 5. Comparaison de 3 modèles
+    # 5. Définition des 4 modèles obligatoires
     models = {
         "RandomForest": RandomForestClassifier(random_state=42),
         "XGBoost": XGBClassifier(random_state=42, eval_metric='logloss'),
-        "LightGBM": LGBMClassifier(random_state=42, verbose=-1)
+        "LightGBM": LGBMClassifier(random_state=42, verbose=-1),
+        "SVM": SVC(random_state=42, probability=True)
     }
 
     best_model = None
-    best_score = 0
+    best_recall = 0
 
-    print("\n📊 Résultats des modèles :")
+    print(f"{'Modèle':<15} | {'Accuracy':<10} | {'ROC-AUC':<10} | {'Rappel (Recall)':<10}")
+    print("-" * 70)
+
     for name, m in models.items():
-        # L'algorithme lit l'énoncé (X_res) et regarde le corrigé (y_res) pour apprendre
         m.fit(X_res, y_res)
         
-        # On le teste sur des données qu'il n'a jamais vues (X_test)
-        score = m.score(X_test, y_test)
-        print(f"Modèle {name} - Accuracy: {score:.4f}")
+        y_pred = m.predict(X_test)
+        y_prob = m.predict_proba(X_test)[:, 1]
         
-        if score > best_score:
-            best_score = score
+        acc = accuracy_score(y_test, y_pred) * 100
+        roc = roc_auc_score(y_test, y_prob) * 100
+        rec = recall_score(y_test, y_pred) * 100
+        
+        print(f"{name:<15} | {acc:>8.1f}% | {roc:>8.1f}% | {rec:>13.1f}%")
+        
+        # Sélection basée sur le Rappel pour la sécurité médicale
+        if rec > best_recall:
+            best_recall = rec
             best_model = m
 
-    # 6. Sauvegarde du meilleur modèle
+    # 6. Sauvegarde du champion
     os.makedirs('models', exist_ok=True)
     joblib.dump(best_model, 'models/final_model.joblib')
-    print(f"\n🏆 Meilleur modèle sauvegardé : {best_model.__class__.__name__} (Score: {best_score:.4f})")
+    
+    print("="*70)
+    print(f"🏆 GAGNANT : {best_model.__class__.__name__}")
+    print(f"Ce modèle est sauvegardé pour l'application.")
+    print("="*70 + "\n")
 
 if __name__ == "__main__":
     train()
-

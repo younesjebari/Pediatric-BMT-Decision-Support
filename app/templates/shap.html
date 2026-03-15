@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Analyse SHAP{% endblock %}
+
+{% block content %}
+<section class="section" style="padding-top: 7rem;">
+    <div class="section-inner">
+        <div class="section-header">
+            <div class="section-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Explicabilite
+            </div>
+            <h2 class="section-title">Analyse <span class="gradient-text">SHAP</span></h2>
+            <p class="section-desc">Comprendre comment le modele utilise chaque variable pour faire ses predictions.</p>
+        </div>
+
+        <div class="shap-grid">
+            <!-- SHAP Summary -->
+            <div class="card animate-fade-in-up">
+                <div class="card-header">
+                    <h3>SHAP Summary Plot</h3>
+                    <p>Importance moyenne des variables sur l'ensemble des predictions</p>
+                </div>
+                <div class="card-body">
+                    {% if shap_summary %}
+                    {% for feat in shap_summary %}
+                    <div class="shap-bar-item">
+                        <span class="shap-bar-name">{{ feat.name }}</span>
+                        <div class="shap-bar-track">
+                            <div class="shap-bar-center"></div>
+                            {% if feat.value >= 0 %}
+                            <div class="shap-bar-fill positive" style="width: {{ feat.bar_width }}%"></div>
+                            {% else %}
+                            <div class="shap-bar-fill negative" style="width: {{ feat.bar_width }}%; right: 50%; left: auto;"></div>
+                            {% endif %}
+                        </div>
+                        <span class="shap-bar-val" style="color: {{ '#16a34a' if feat.value >= 0 else '#dc2626' }}">
+                            {{ '+' if feat.value >= 0 }}{{ '%.3f' | format(feat.value) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="result-placeholder" style="padding: 2rem;">
+                        <p>Les valeurs SHAP globales ne sont pas disponibles.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Interpretation Guide -->
+            <div class="card animate-fade-in-up delay-200">
+                <div class="card-header">
+                    <h3>Guide d'Interpretation</h3>
+                    <p>Signification de chaque variable clinique</p>
+                </div>
+                <div class="card-body">
+                    <div class="guide-grid">
+                        <div class="guide-item">
+                            <h4>Recipientage</h4>
+                            <p>Age du receveur au moment de la greffe (0.5-20 ans)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Donorage</h4>
+                            <p>Age du donneur au moment du prelevement</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Rbodymass</h4>
+                            <p>Masse corporelle du receveur (kg)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>CD34kgx10d6</h4>
+                            <p>Dose de cellules CD34+ par kg (10^6/kg)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>CD3dkgx10d8</h4>
+                            <p>Dose de cellules CD3+ par kg (10^8/kg)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>PLTrecovery</h4>
+                            <p>Temps de recuperation des plaquettes (jours)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Disease</h4>
+                            <p>Type de maladie (ALL, AML, Chronique, Lymphome, Non-malignant)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>HLAmatch</h4>
+                            <p>Niveau de compatibilite HLA (10/10 a 7/10)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Relapse</h4>
+                            <p>Rechute de la maladie (Oui/Non)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>extcGvHD</h4>
+                            <p>GvHD chronique extensive (Oui/Non)</p>
+                        </div>
+                        <div class="guide-item">
+                            <h4>Riskgroup</h4>
+                            <p>Groupe de risque du patient (Faible/Haut)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
