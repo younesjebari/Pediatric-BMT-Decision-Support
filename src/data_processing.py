@@ -1,44 +1,41 @@
 import pandas as pd
 import numpy as np
 
-# Liste officielle des variables validées par tes tests statistiques ✅
-# Ce sont les variables qui ont un lien réel avec la survie des patients
+# Liste des variables validées par ton EDA (p < 0.05) ✅
+# Nous excluons 'survival_time' (leakage) et 'PLTrecovery' (donnée post-op)
 IMPORTANT_FEATURES = [
-    'Recipientage',   # Âge du receveur
-    'Rbodymass',      # Masse corporelle
-    'CD34kgx10d6',    # Dose CD34+
-    'CD3dkgx10d8',    # Dose CD3+
-    'Disease',        # Type de maladie
-    'Relapse',        # Antécédent de rechute
-    'Gendermatch',    # Compatibilité de genre
-    'Hlamatch'        # Compatibilité HLA
+    'CD3dkgx10d8',    # Corrélation significative (-0.23)
+    'Rbodymass',      # Corrélation significative (0.21)
+    'Recipientage',   # Corrélation significative (0.20)
+    'CD34kgx10d6',    # Corrélation significative (-0.19)
+    'Disease',        # Variable clinique majeure
+    'Relapse',        # Facteur de risque connu
+    'Gendermatch',    # Variable de compatibilité
+    'HLAmatch'        # Variable de compatibilité
 ]
 
 def clean_data(df):
-    """
-    Décode les données et supprime les lignes avec des valeurs manquantes.
-    C'est la méthode la plus fiable pour éviter les biais.
-    """
+    """Nettoyage et décodage des données ARFF."""
     df = df.copy()
-    # Décodage des chaînes de caractères bytes
+    # Décodage des bytes en chaînes de caractères
     for col in df.select_dtypes([object]):
         df[col] = df[col].str.decode('utf-8')
     
-    # Suppression radicale des lignes incomplètes (dropna)
-    return df.dropna()
+    # Suppression des lignes avec des valeurs manquantes sur les variables clés
+    # Cela garantit la qualité médicale de l'apprentissage
+    return df.dropna(subset=IMPORTANT_FEATURES + ['survival_status'])
 
 def encode_categories(df):
-    """Transforme le texte en codes numériques pour que l'IA comprenne."""
+    """Conversion des catégories en codes numériques."""
     df = df.copy()
-    # On transforme les colonnes 'object' en types 'category' puis en codes
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].astype('category').cat.codes
     return df
 
-# --- FONCTIONS DE COMPATIBILITÉ POUR RÉPARER LES TESTS GITHUB (LA CROIX ROUGE) ---
+# --- COMPATIBILITÉ AVEC LES TESTS GITHUB ACTIONS ---
 
 def optimize_memory(df):
-    """Réduit l'usage mémoire (demandé par test_data_processing.py)."""
+    """Réduction de la précision des types pour économiser la mémoire."""
     df = df.copy()
     for col in df.select_dtypes(include=["float64"]).columns:
         df[col] = df[col].astype("float32")
@@ -47,11 +44,11 @@ def optimize_memory(df):
     return df
 
 def handle_missing_values(df):
-    """Remplit les cases vides (demandé par test_plus_de_nan)."""
+    """Remplissage par défaut pour éviter les erreurs dans les tests unitaires."""
     df = df.copy()
     for col in df.columns:
         if df[col].dtype == 'object':
-            df[col] = df[col].fillna("valeur_manquante")
+            df[col] = df[col].fillna("inconnu")
         else:
             df[col] = df[col].fillna(df[col].median())
     return df

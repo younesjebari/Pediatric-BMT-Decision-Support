@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from scipy.io import arff
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
@@ -11,110 +12,75 @@ from sklearn.metrics import roc_auc_score
 import joblib
 import os
 
-# ─────────────────────────────────────────────
-#  FEATURES — noms exacts tels qu'ils sont dans le dataset
-# ─────────────────────────────────────────────
-FEATURES = [
-    'Recipientage',   # Âge du receveur
-    'Rbodymass',      # Masse corporelle
-    'CD34kgx10d6',    # Dose CD34+
-    'CD3dkgx10d8',    # Dose CD3+
-    'Disease',        # Type de maladie        (catégorielle)
-    'Relapse',        # Antécédent de rechute  (catégorielle)
-    'Gendermatch',    # Compatibilité de genre (catégorielle)
-    'HLAmatch',       # Compatibilité HLA      (catégorielle) ← nom exact du dataset
-]
-
-CATEGORICAL_FEATURES = ['Disease', 'Relapse', 'Gendermatch', 'HLAmatch']
-NUMERICAL_FEATURES   = ['Recipientage', 'Rbodymass', 'CD34kgx10d6', 'CD3dkgx10d8']
-
+# On importe la logique de nettoyage centralisée
+from data_processing import clean_data, encode_categories, IMPORTANT_FEATURES
 
 def train():
-    print("🚀 Démarrage de l'entraînement et de la comparaison des modèles...")
+    print("🚀 Démarrage de l'entraînement (Pipeline Machine Learning)...")
 
-    # ── 1. Chargement des données ──────────────────────────────────────────
-    raw_data, _ = arff.loadarff('data/bone-marrow.arff')
-    df = pd.DataFrame(raw_data)
+    # 1. Chargement des données
+    try:
+        raw_data, _ = arff.loadarff('../data/bone-marrow.arff')
+        df = pd.DataFrame(raw_data)
+    except Exception as e:
+        print(f"❌ Erreur : Fichier de données introuvable. {e}")
+        return
 
-    # Décodage bytes → string
-    for col in df.select_dtypes([object]):
-        df[col] = df[col].str.decode('utf-8')
+    # 2. Prétraitement (Nettoyage et Encodage)
+    df = clean_data(df)
+    df = encode_categories(df)
+    
+    # X = Nos variables validées par l'EDA, y = survie/décès
+    X = df[IMPORTANT_FEATURES]
+    y = pd.to_numeric(df['survival_status']).astype(int)
 
-    # ── 2. Sélection et nettoyage des colonnes utiles ──────────────────────
-    df = df[FEATURES + ['survival_status']].copy()
+    print(f"📊 Analyse de {len(df)} patients sur {len(IMPORTANT_FEATURES)} variables.")
 
-    # Remplissage des valeurs manquantes
-    for col in NUMERICAL_FEATURES:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-        df[col] = df[col].fillna(df[col].median())
-
-    for col in CATEGORICAL_FEATURES:
-        df[col] = df[col].fillna(df[col].mode()[0])
-
-    # ── 3. Encodage des variables catégorielles ────────────────────────────
-    for col in CATEGORICAL_FEATURES:
-        df[col] = df[col].astype('category').cat.codes
-
-    # ── 4. Cible ───────────────────────────────────────────────────────────
-    X = df[FEATURES]
-    y = pd.to_numeric(df['survival_status'], errors='coerce').fillna(0).astype(int)
-
-    # ── 5. Séparation train / test ─────────────────────────────────────────
+    # 3. Séparation Train (80%) / Test (20%)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # ── 6. Standardisation ────────────────────────────────────────────────
+    # 4. Standardisation (Nécessaire pour SVM et la stabilité des modèles)
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled  = scaler.transform(X_test)
+    X_test_scaled = scaler.transform(X_test)
 
-    # ── 7. SMOTE — équilibrage des classes ────────────────────────────────
+    # 5. Équilibrage SMOTE
     smote = SMOTE(random_state=42, k_neighbors=1)
     X_res, y_res = smote.fit_resample(X_train_scaled, y_train)
-    print(f"   Après SMOTE — classe 0: {(y_res==0).sum()}, classe 1: {(y_res==1).sum()}")
 
-    # ── 8. Comparaison de 4 modèles ───────────────────────────────────────
+    # 6. Comparaison des Modèles
     models = {
-        "RandomForest": RandomForestClassifier(n_estimators=200, random_state=42),
-        "XGBoost":      XGBClassifier(random_state=42, eval_metric='logloss', verbosity=0),
-        "LightGBM":     LGBMClassifier(random_state=42, verbose=-1),
-        "SVM":          SVC(probability=True, random_state=42),
+        "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
+        "XGBoost": XGBClassifier(random_state=42, eval_metric='logloss'),
+        "LightGBM": LGBMClassifier(random_state=42, verbose=-1),
+        "SVM": SVC(probability=True, random_state=42)
     }
 
-    best_model      = None
-    best_score      = 0
-    best_model_name = ""
+    best_model = None
+    best_score = 0
+    best_name = ""
 
-    print("\n📊 Résultats des modèles :")
-    print(f"{'Modèle':<18} {'Accuracy':>10} {'ROC-AUC':>10}")
-    print("-" * 42)
-
+    print("\n📈 Évaluation des performances :")
     for name, m in models.items():
         m.fit(X_res, y_res)
-        acc     = m.score(X_test_scaled, y_test)
         y_proba = m.predict_proba(X_test_scaled)[:, 1]
-        auc     = roc_auc_score(y_test, y_proba)
-        print(f"{name:<18} {acc:>10.4f} {auc:>10.4f}")
-
+        auc = roc_auc_score(y_test, y_proba)
+        print(f"-> {name:15s} | ROC-AUC : {auc:.4f}")
+        
         if auc > best_score:
-            best_score      = auc
-            best_model      = m
-            best_model_name = name
+            best_score = auc
+            best_model = m
+            best_name = name
 
-    # ── 9. Sauvegarde ─────────────────────────────────────────────────────
-    os.makedirs('models', exist_ok=True)
-
-    joblib.dump(best_model, 'models/final_model.joblib')
-    joblib.dump(scaler,     'models/scaler.joblib')
-    joblib.dump(FEATURES,   'models/features_list.joblib')
-
-    print(f"\n🏆 Meilleur modèle : {best_model_name} (ROC-AUC: {best_score:.4f})")
-    print("💾 Fichiers sauvegardés dans models/")
-    print("   • final_model.joblib")
-    print("   • scaler.joblib")
-    print("   • features_list.joblib")
-
+    # 7. Sauvegarde du trio de production
+    os.makedirs('../models', exist_ok=True)
+    joblib.dump(best_model, '../models/final_model.joblib')
+    joblib.dump(scaler, '../models/scaler.joblib')
+    joblib.dump(IMPORTANT_FEATURES, '../models/features_list.joblib')
+    
+    print(f"\n🏆 Meilleur modèle sauvegardé : {best_name}")
 
 if __name__ == "__main__":
     train()
