@@ -26,8 +26,9 @@ Pediatric-BMT-Decision-Support/
 ├── tests/               # Scripts de validation continue (exécutés via Pytest)
 ├── Dockerfile           # Fichier de configuration pour la conteneurisation
 └── requirements.txt     # Liste stricte des dépendances Python
+```
 
-##  Analyse Exploratoire des Données
+## Analyse Exploratoire des Données
 
 Le fichier `notebooks/eda.ipynb` constitue la fondation scientifique de notre démarche. Avant d'entraîner le moindre algorithme, une analyse rigoureuse du jeu de données brut  a été menée pour comprendre les dynamiques cliniques et garantir la fiabilité du modèle.
 
